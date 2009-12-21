@@ -9,7 +9,7 @@ package List::Gen;
     our @EXPORT      = qw/mapn by every range gen genr cache apply zip min max reduce/;
     our @EXPORT_OK   = (our @list_util, @EXPORT, qw/d deref slide expand collect/);
     our %EXPORT_TAGS = (all => \@EXPORT_OK, base => \@EXPORT);
-    our $VERSION     = '0.30';
+    our $VERSION     = '0.31';
 
 =head1 NAME
 
@@ -17,7 +17,7 @@ List::Gen - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.30
+version 0.31
 
 =head1 SYNOPSIS
 
@@ -204,7 +204,7 @@ C<undef> is returned for missing elements of shorter lists.
 
 in this document, generators will refer to tied arrays that generate their elements
 on demand.  generators can be used as iterators in perl's list control structures
-such as C< for map or grep >.  since generators are lazy, infinite generators
+such as C<for>, C<map> or C<grep>.  since generators are lazy, infinite generators
 can be created. slow generators can also be cached
 
 all generator functions, in scalar context, will return a reference to a tied array.
@@ -415,7 +415,7 @@ the return semantics are the same as C<range>.
 
 =item C<cache CODE>
 
-=item C<cache list => CODE>
+=item C<< cache list => CODE >>
 
 C<cache> will return a cached version of the generator returned by functions in this package.
 when passed a code reference, cache returns a memoized code ref (arguments joined with C<$;>).
