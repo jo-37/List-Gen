@@ -1,6 +1,6 @@
 ---
 name: List-Gen
-version: 0.31
+version: 0.50
 author:
   - 'Eric Strom <ejstrom@gmail.com>'
 abstract: provides functions for generating lists
@@ -10,12 +10,12 @@ resources:
 build_requires:
   Test::More: 0
 configure_requires:
-  Module::Build: 0.34
+  Module::Build: 0.35
 provides:
   List::Gen:
     file: lib/List/Gen.pm
-    version: 0.31
-generated_by: Module::Build version 0.34
+    version: 0.50
+generated_by: Module::Build version 0.350001
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html
   version: 1.4

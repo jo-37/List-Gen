@@ -2,3 +2,7 @@ Revision history for List-Gen
 
 0.30    2009.12.20
         forked from List::Step
+
+0.50    2010.01.18
+        many updates and performance enhancements
+        some syntax from previous versions is no longer valid
