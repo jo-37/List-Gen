@@ -6,3 +6,6 @@ Revision history for List-Gen
 0.50    2010.01.18
         many updates and performance enhancements
         some syntax from previous versions is no longer valid
+
+0.55    2010.02.21
+        fixed bug with list context generators

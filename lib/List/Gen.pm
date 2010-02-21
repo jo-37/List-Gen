@@ -9,7 +9,7 @@ package List::Gen;
     our @EXPORT      = qw/mapn by every range gen cap filter test cache apply zip min max reduce/;
     our @EXPORT_OK   = (our @list_util, @EXPORT, qw/d deref slide flip expand collect makegen genzip curse/);
     our %EXPORT_TAGS = (base => \@EXPORT, all => \@EXPORT_OK);
-    our $VERSION     = '0.50';
+    our $VERSION     = '0.55';
     our $LIST        = 0;
     BEGIN {
         require Exporter;
@@ -29,7 +29,7 @@ List::Gen - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.50
+version 0.55
 
 =head1 SYNOPSIS
 
@@ -137,11 +137,14 @@ the C<CODE> block will be executed in void context for efficiency.
     {my $id;
     sub curse {
         my ($obj, $class) = (@_, scalar caller);
-        my $pkg = $class.'::_'.++$id;
+        my $gid = '_'.++$id;
+        my $pkg = $class.'::'.$gid;
 
         no strict 'refs';
-        defined %{$pkg.'::'} and croak "package '$pkg' not empty";
-
+        for (*{$class.'::'}{HASH}) {
+            defined and exists $$_{$gid.'::'}
+                and croak "package $pkg not empty"
+        }
         *{$pkg.'::DESTROY'} = sub {delete_package $pkg};
         @{$pkg.'::ISA'}     = $class;
         *{$pkg.'::'.$_}     = $$obj{$_}
@@ -358,7 +361,7 @@ to another generator function.
     for my $sub qw(TIEARRAY FETCH STORE FETCHSIZE STORESIZE CLEAR
                    PUSH POP SHIFT UNSHIFT SPLICE UNTIE EXTEND) {
         no strict 'refs';
-        *$sub = sub {Carp::croak "$sub not supported"}
+        *$sub = sub {Carp::confess "$sub not supported"}
     }
     sub DESTROY {}
     sub source  {}
@@ -397,7 +400,7 @@ to another generator function.
                 };
                 $overload
             },
-            size  => ($mutable ? sub {$fetchsize->()} : sub{$size}),
+            size  => ($mutable ? $fetchsize : sub {$size}),
             get   => sub {$fetch->(undef, $_[1])},
             slice => sub {shift; map $fetch->(undef, $_) => @_},
             index => sub :lvalue {$index},
@@ -445,7 +448,8 @@ sub isagen (;$) {
 sub tiegen {
     my @ret;
     eval {tie @ret => 'List::Gen::'.shift, @_}
-      or croak 'invalid arguments';
+        or croak 'invalid arguments, ',
+           $@ =~ /^(.+) at .+?List-Gen.*$/s ? $1 : $@;
     $LIST && (caller 1)[5]
         ? @ret
         : List::Gen::erator->new(\@ret)
@@ -535,7 +539,7 @@ the list is unacceptable.
     }
     sub dwim {
         @_ or @_ = (0 => 9**9**9);
-        local $_ = $_[0];
+        local *_ = \$_[0];
         $#_ and &range
              or isagen
              or eval {&makegen}
@@ -546,31 +550,29 @@ the list is unacceptable.
         my ($fetch, $fetchsize    ) = @$source{qw/FETCH FETCHSIZE/};
         curse {
             FETCH => (
-                $source->can('range') ? do {
-                    my ($low, $step, $size) = $source->range;
+                do {{
+                    my ($low, $step, $size) = ($source->can('range') or next)->();
                     sub {
                         my $i = $_[1];
-                        local $_ = $i < $size
+                        local *_ = \($i < $size
                                  ? $low + $step * $i
-                                 : $fetch->(undef, $i);
+                                 : $fetch->(undef, $i));
                         $code->()
                     }
-                } :
-                $source->can('capture') ? do {
-                    my $cap = $source->capture;
+                }} or do {{
+                    my $cap = ($source->can('capture') or next)->();
                     sub {
                         local *_ = \$$cap[ $_[1] ];
                         $code->()
                     }
-                } :
-                sub {
-                    local $_ = $fetch->(undef, $_[1]);
+                }} or sub {
+                    local *_ = \$fetch->(undef, $_[1]);
                     $code->()
                 }
             ),
             FETCHSIZE => (
                 $source->mutable
-                    ? sub {$fetchsize->()}
+                    ? $fetchsize
                     : do {
                         my $size = $fetchsize->();
                         sub {$size}
@@ -669,7 +671,7 @@ accessing individual elements or slices works as you would expect.
                     last unless $pos < ($mutable
                                         ? $srcsize = $fetchsize->()
                                         : $srcsize);
-                    $_ = $fetch->(undef, $pos++);
+                    *_ = \$fetch->(undef, $pos++);
                     $code->() ? push @list, $_
                               : $size--
                 }
@@ -777,7 +779,7 @@ context, otherwise scalar context is used.
             ),
             FETCHSIZE => (
                 $source->mutable
-                    ? sub {$fetchsize->()}
+                    ? $fetchsize
                     : do {
                         my $size = $fetchsize->();
                         sub {$size}
@@ -834,7 +836,7 @@ C<expand> implicitly caches its returned generator.
     my $expanded = expand $multigen;
 
     say join ' '=> @$expanded[0 .. 2];  # 1 0.5 0.25
-    say join ' '=> $expanded->(0 .. 2); # 1 0.5 0.25
+    say join ' '=> &$expanded(0 .. 2);  # 1 0.5 0.25
     say scalar @$expanded;              # 30
     say $expanded->size;                # 30
 

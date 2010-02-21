@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use Scalar::Util 'weaken';
-use Test::Simple tests => 45;
+use Test::Simple tests => 46;
 BEGIN {unshift @INC, '../lib'}
 use List::Gen '*';
 
@@ -106,6 +106,13 @@ ok  'gen'
 
 ok  'gen @_ == 1'
 =>  (gen {$_**2} 10)->[4] == 16;
+
+{
+    local $List::Gen::LIST = 1;
+    my $sum = 0;
+    $sum += $_ for gen {$_*2} 1, 10;
+    ok  'gen direct for loop' => $sum == 110;
+}
 
 my $ta = range 0, 2**128, 0.5;
 
@@ -266,7 +273,7 @@ ok  'slide'
         &&  $get->(undef,5) == 25;
     }
     ok  'curse: destroy'
-    =>  ! defined %{$pkg.'::'}
+    =>  ! defined %{$pkg.'::'} # warns in 5.11.*
     &&  $get->(undef,5) == 25
     &&  do {weaken $get;
         ! eval {no warnings; say $get->(undef,3); 1}
