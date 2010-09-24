@@ -10,6 +10,16 @@ my $builder = Module::Build->new(
     build_requires => {
         'Test::More' => 0,
     },
+    requires => {
+		'strict'	   => 0,
+		'warnings'     => 0,
+		'Carp'		   => 0,
+		'List::Util'   => 0,
+		'Exporter'     => 0,
+		'Scalar::Util' => 0,
+        'Symbol'       => 0,
+        'overload'     => 0,
+    },
     add_to_cleanup      => [ 'List-Gen-*' ],
     create_makefile_pl => 'traditional',
 );
