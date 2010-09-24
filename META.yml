@@ -15,7 +15,7 @@ name: List-Gen
 provides:
   List::Gen:
     file: lib/List/Gen.pm
-    version: 0.70
+    version: 0.71
 requires:
   Carp: 0
   Exporter: 0
@@ -27,4 +27,4 @@ requires:
   warnings: 0
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.70
+version: 0.71

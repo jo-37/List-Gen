@@ -12,7 +12,7 @@ package List::Gen;
                         sequence deref slide flip expand contract collect
                         makegen genzip overlay curse iterate gather/);
     our %EXPORT_TAGS = (base => \@EXPORT, all => \@EXPORT_OK);
-    our $VERSION     = '0.70';
+    our $VERSION     = '0.71';
     our $LIST        = 0;
     our $FILTER_LOOKAHEAD = 1;
     BEGIN {
@@ -33,7 +33,7 @@ List::Gen - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.70
+version 0.71
 
 =head1 SYNOPSIS
 
@@ -1142,7 +1142,7 @@ normal array ref syntax
 
 =cut
     sub overlay ($%) {
-        isagen my $source = shift
+        isagen (my $source = shift)
             or croak '$_[0] to overlay must be a generator';
         tiegen Overlay => tied @$source, @_
     }
@@ -1173,7 +1173,7 @@ normal array ref syntax
 
 =cut
     sub recursive ($) {
-        isagen my $source = shift
+        isagen (my $source = shift)
             or croak '$_[0] to recursive must be a generator';
         tiegen Recursive => tied @$source, scalar caller;
     }
