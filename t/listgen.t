@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 use Scalar::Util 'weaken';
-use Test::More tests => 80;
+use Test::More tests => 109;
 BEGIN {unshift @INC, '../lib'}
 use List::Gen '*';
 
@@ -156,6 +156,35 @@ t 'iterator reset',
       && do {$ta->reset;
          $ta->() == 0};
 
+{
+
+my $gen = gen {$_**2} 0, 10;
+
+local $_;
+my @list;
+push @list, $_ while <$gen>;
+t 'handle, while',
+    is => "@list", '0 1 4 9 16 25 36 49 64 81 100';
+
+$gen->reset;
+
+my $str;
+$str .= <$gen>.' ' while $gen->more;
+
+t 'handle, scalar',
+    is => $str, '0 1 4 9 16 25 36 49 64 81 100 ';
+
+$gen->index = 6;
+
+@list = ();
+while (my $x = <$gen>) {
+    push @list, $x;
+}
+t 'handle, while my',
+    is => "@list", "36 49 64 81 100";
+
+}
+
 
 t 'glob: <1 .. 10>',
    is_deeply => <1 .. 10>, range 1, 10;
@@ -226,7 +255,42 @@ t 'glob: <*.t>',
              "0 1 1 2 3 5 8 13 21 34 55 89 144 233 377 610\n".
              "0 1 1 2 3 5 8 13 21 34 55 89 144 233 377 610 987 1597 2584 4181 6765\n".
              "5 8 13 21 34 55";
+
+    my $nest = gather {take(sum @{+gather {take($_*$_)} $_ + 1})};
+
+    t 'gather / take, nest',
+        is_deeply => "@$nest[0 .. 10]",
+        join ' ' => map {sum map {$_*$_} 0 .. $_} 0 .. 10;
 }
+
+{
+    my $iter = 0;
+    my $gm = do {
+        my $i = 0;
+        gather_multi {
+            $iter++;
+            take($i++), take($i++) for 1 .. 5
+        }
+    };
+    t 'gather_multi',
+        is => "@$gm[0 .. 5]", '0 1 2 3 4 5';
+
+    t 'gather_multi, iter',
+        is => $iter, 1;
+
+    t 'gather_multi, inside',
+        is => "@$gm[3 .. 7]", '3 4 5 6 7';
+
+    t 'gather_multi, iter unchanged',
+        is => $iter, 1;
+
+    t 'gather_multi, more',
+        is => "@$gm[8 .. 14]", '8 9 10 11 12 13 14';
+
+    t 'gather_multi, iter++',
+        is => $iter, 2;
+}
+
 {
 my $seq = sequence <1 .. 5>, <20 .. 30>, <6 .. 9>, <10 .. 0 -= 2>;
 
@@ -393,12 +457,84 @@ t 'overlay: fibonacci 2',
 }
 
 t 'recursive',
-  is => join(' ', gen {self($_ - 1) + self($_ - 2)}
-                ->overlay( 0 => 0, 1 => 1 )
-                ->cache
-                ->recursive
-                ->slice(0 .. 15)
+   is => join(' ', gen {self($_ - 1) + self($_ - 2)}
+                 ->overlay( 0 => 0, 1 => 1 )
+                 ->cache
+                 ->recursive
+                 ->slice(0 .. 15)
         ), '0 1 1 2 3 5 8 13 21 34 55 89 144 233 377 610';
+
+
+eval {
+    my $cube = While {$_ < 30} gen {$_**3};
+
+    t 'while',
+       is_deeply => [$cube->all], [qw/0 1 8 27/];
+
+    my $gen = do {
+        my ($a, $b) = (0, 1);
+        gather {
+            ($a, $b) = ($b, take($a) + $b)
+        }
+    }->while(sub {$_ < 700});
+
+    t 'while, iterative',
+       is_deeply => do {
+            my @fib;
+            push @fib, $_ for @$gen;
+            \@fib
+       }, [qw/0 1 1 2 3 5 8 13 21 34 55 89 144 233 377 610/];
+
+    my $while = While {$_ < 10} gen {$_};
+
+    t 'while, initial over',
+        is => $$while[20], undef;
+
+    t 'while, second over',
+        ok => !eval {my $x = $$while[20]; 1};
+
+    t 'while, second over msg',
+       like => $@, qr/past end/;
+
+    t 'while, under after over',
+        is => $$while[7], 7;
+
+    t 'while, over-- after over',
+        is => $$while[19], undef;
+
+    my $deref = While {$_ < 10} gen {$_};
+
+    t 'while, array deref outside foreach',
+        ok => !eval {my $x = join ' ' => @$deref; 1};
+
+    t 'while, array deref outside foreach msg',
+        like => $@, qr/past end/;
+
+    t 'while, second array deref',
+        is => "@$deref", '0 1 2 3 4 5 6 7 8 9';
+
+} or diag $@;
+
+{
+    my $pow = Until {$_ > 20 } gen {$_**2};
+
+    t 'until',
+       is_deeply => [$pow->all], [qw/0 1 4 9 16/];
+
+    my $gen = do {
+        my ($a, $b) = (0, 1);
+        gather {
+            ($a, $b) = ($b, take($a) + $b)
+        }
+    }->until(sub {$_ > 700});
+
+    t 'until, iterative',
+       is_deeply => do {
+            my @fib;
+            push @fib, $_ for @$gen;
+            \@fib
+       }, [qw/0 1 1 2 3 5 8 13 21 34 55 89 144 233 377 610/];
+}
 
 {local $" = '';
     t 'mapkey',
@@ -448,17 +584,42 @@ t 'slide',
     my $pkg;
     my $get;
     {
-        my $gen = gen {$_**2};
+        my $gen = range 0, 10;
         $pkg = ref $gen;
         $get = $gen->can('get');
         t 'curse: create',
            ok => ref $get eq 'CODE'
-              && $get->(undef,5) == 25;
+              && $get->(undef,5) == 5;
     }
     t 'curse: destroy',
        ok => ! %{$pkg.'::'}
-          && $get->(undef,5) == 25
+          && $get->(undef,5) == 5
           && do {weaken $get;
            ! eval {no warnings; say $get->(undef,3); 1}
     };
+}
+{no strict 'refs';
+    my ($pkg_gen, $pkg_range);
+    my ($get_gen, $get_range);
+    {
+        my $range = range 0, 9**9**9;
+        my $gen = gen {$_**2} $range;
+        $pkg_gen = ref $gen;
+        $pkg_range = ref $range;
+        $get_gen = $gen->can('get');
+        $get_range = $range->can('get');
+    }
+
+    t 'curse: pkg gen',    ok => ! %{$pkg_gen.'::'};
+    t 'curse: pkg range',  ok => ! %{$pkg_range.'::'};
+
+    t 'curse: get gen',    is => $get_gen->(undef,5), 25;
+    t 'curse: get range',  is => $get_range->(undef,5), 5;
+
+    weaken $get_gen;
+    t 'curse: destroy gen', ok =>! eval {no warnings;  $get_gen->(undef,3); 1};
+    t 'curse: keep range',  ok =>  eval {no warnings;  $get_range->(undef,3); 1};
+
+    weaken $get_range;
+    t 'curse: destroy range', ok =>! eval {no warnings;  $get_range->(undef,3); 1};
 }

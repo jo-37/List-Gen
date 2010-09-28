@@ -3,6 +3,7 @@ Changes
 MANIFEST
 README
 lib/List/Gen.pm
+lib/List/Gen/Cookbook.pm
 t/00-load.t
 t/pod-coverage.t
 t/pod.t

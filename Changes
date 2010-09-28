@@ -12,3 +12,6 @@ Revision history for List-Gen
 
 0.70    2010.09.21
         too many to count, do a diff :)
+
+0.80    2010.09.27
+        better iterative generators, While/Until

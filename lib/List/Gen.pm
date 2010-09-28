@@ -8,11 +8,12 @@ package List::Gen;
     our @list_util   = qw/first max maxstr min minstr reduce shuffle sum/;
     our @EXPORT      = qw/mapn by every range gen cap filter test cache apply
                         zip min max reduce/;
-    our @EXPORT_OK   = (our @list_util, @EXPORT, qw/glob mapkey cartesian d
-                        sequence deref slide flip expand contract collect
-                        makegen genzip overlay curse iterate gather/);
+    our @EXPORT_OK   = (our @list_util, @EXPORT, qw/glob mapkey cartesian
+                        sequence d deref slide flip expand contract collect
+                        makegen genzip overlay curse iterate iterate_multi
+                        gather gather_multi Until While recursive/);
     our %EXPORT_TAGS = (base => \@EXPORT, all => \@EXPORT_OK);
-    our $VERSION     = '0.71';
+    our $VERSION     = '0.80';
     our $LIST        = 0;
     our $FILTER_LOOKAHEAD = 1;
     BEGIN {
@@ -33,7 +34,7 @@ List::Gen - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.71
+version 0.80
 
 =head1 SYNOPSIS
 
@@ -69,9 +70,10 @@ from List::Util are available.
                      min max reduce/;
 
     the following functions are available:
-        mapn by every range gen cap filter test cache apply zip min max reduce
-        glob mapkey cartesian sequence d deref slide flip expand contract
-        collect makegen genzip overlay iterate gather curse
+        mapn by every range gen cap filter test cache apply zip glob
+        mapkey cartesian sequence d deref slide flip expand contract
+        collect makegen genzip overlay curse iterate iterate_multi
+        gather gather_multi Until While recursive
 
     and from List::Util => first max maxstr min minstr reduce shuffle sum
 
@@ -137,17 +139,21 @@ C< CODE > block will be executed in void context for efficiency.
         splice @_, 1, 0, 'Generator', @_ > 1 ? 'TIEARRAY' : ();
         goto &packager
     }
+    generator 'Mutable';
+    sub mutable_gen {
+        splice @_, 1, 0, 'Mutable', @_ > 1 ? 'TIEARRAY' : ();
+        goto &packager
+    }
 
     {my $id;
     sub curse {
         my ($obj,  $class) = @_;
-        my $pkg = ($class ||= caller) .'::_'. ++$id;
-
+        my $pkg = ($class || caller) .'::_'. ++$id;
         no strict 'refs';
         croak "package $pkg not empty" if %{$pkg.'::'};
 
         *{$pkg.'::DESTROY'} = sub {delete_package $pkg};
-        @{$pkg.'::ISA'}     = $class;
+        @{$pkg.'::ISA'}     = $class if $class;
         *{$pkg.'::'.$_}     = $$obj{$_}
             for grep {not /^-/ and ref $$obj{$_} eq 'CODE'}
                 keys %$obj;
@@ -281,7 +287,7 @@ aliases to the original list
 
 in this document, generators will refer to tied arrays that generate their
 elements on demand. generators can be used as iterators in perl's list control
-structures such as C< for >, C< map > or C< grep >. since generators are lazy,
+structures such as C< for/foreach > and C< while >. since generators are lazy,
 infinite generators can be created. slow generators can also be cached.
 
 =over 8
@@ -305,7 +311,7 @@ array. elements are created on demand as they are dereferenced.
 the returned reference also has the following methods:
 
     $gen->next           # iterates over generator ~~ $gen->get($gen->index++)
-    $gen->()             # same.  iterators return undef when past the end
+    $gen->()             # same.  iterators return () when past the end
 
     $gen->more           # test if $gen->index not past end
     $gen->reset          # reset iterator to start
@@ -329,13 +335,21 @@ the returned reference also has the following methods:
 the methods duplicate/extend the tied functionality and are necessary when
 working with indices outside of perl's limit C< (0 .. 2**31 - 1) > or when
 fetching a list return value (perl clamps the return to a scalar with the array
-syntax). in most cases, they are also a little faster than the tied interface.
+syntax). in most cases, they are also faster than the tied interface.
 
 gen, filter, test, cache, flip, reverse (alias of flip), expand, and collect
 are also methods of generators.
 
     my $gen = (range 0, 1_000_000)->gen(sub{$_**2})->filter(sub{$_ % 2});
     #same as: filter {$_ % 2} gen {$_**2} 0, 1_000_000;
+
+=item file handle
+
+you can use generators as file handles:
+
+    while (<$gen>) {  # calls $gen->next internally
+        # this is one of the fastest ways to iterate over a generator
+    }
 
 =item list context
 
@@ -372,7 +386,7 @@ can always be achieved by wrapping a generator with C< @{...} >
     sub FETCHSIZE {
         my $self      = shift;
         my $install   = (ref $self).'::FETCHSIZE';
-        my $realsize  = $$self{realsize};
+        my $realsize  = $self->can('realsize');
         my $fetchsize = sub {
             my $size  = $realsize->();
             $size > 2**31-1
@@ -400,7 +414,8 @@ can always be achieved by wrapping a generator with C< @{...} >
 {package
     List::Gen::erator;
     use overload fallback => 1,
-        '&{}' => sub {$_[0]->_overloader};
+        '&{}' => sub {$_[0]->_overloader},
+        '<>'  => sub {$_[0]->_overloader; $_[0]->next};
     sub new {
         my ($class, $gen) = @_;
         my $src = tied @$gen;
@@ -414,14 +429,15 @@ can always be achieved by wrapping a generator with C< @{...} >
                     : map $fetch->(undef, $_) => @_
                : $index < ($mutable ? $realsize->() : $size)
                     ? $fetch->(undef, $index++)
-                    : undef
+                    : ()
         };
         List::Gen::curse {
             -bless      => $gen,
             _overloader => sub {
                 eval qq {
                     package @{[ref $_[0]]};
-                    use overload fallback => 1, '&{}' => sub {\$overload};
+                    use overload fallback => 1, '&{}' => sub {\$overload},
+                                                '<>'  => 'next';
                     local *DESTROY;
                     bless []; 1
                 };
@@ -432,13 +448,21 @@ can always be achieved by wrapping a generator with C< @{...} >
             slice => sub {shift; map $fetch->(undef, $_) => @_},
             index => sub :lvalue {$index},
             reset => sub {$index = $_[1] || 0; $_[0]},
-            more  => sub {$index < ($mutable ? $realsize->() : $size)},
-            next  => sub {
-                $index < ($mutable ? $realsize->() : $size)
+            more  => ($mutable ? sub {$index < $realsize->()}
+                               : sub {$index < $size}),
+            next  => ($mutable ? sub {
+                ($index < $realsize->())
                     ? $fetch->(undef, $index++)
-                    : undef
-            },
+                    : ()
+            } : sub {
+                ($index < $size)
+                    ? $fetch->(undef, $index++)
+                    : ()
+            }),
             all   => sub {
+                ($mutable ? $realsize->() : $size) < 9**9**9
+                    or $src->isa('List::Gen::While')
+                    or Carp::croak "can't call ->all on an infinite generator";
                 map $fetch->(undef, $_) =>
                     0 .. $#{$mutable ? $_[0]->apply : $_[0]}
             },
@@ -469,13 +493,15 @@ can always be achieved by wrapping a generator with C< @{...} >
             } qw/apply purge/
         } => $class
     }
-    for my $sub qw(gen filter test cache expand contract collect flip iterate gather) {
+    for my $sub qw(gen filter test cache expand
+                contract collect flip While Until) {
         no strict 'refs';
-        *$sub = sub {"List::Gen::$sub"->(@_[1 .. $#_, 0])}
+        *{lc $sub} = sub {@_ = @_[1 .. $#_, 0]; goto &{"List::Gen::$sub"}}
     }
     sub reverse   {goto &List::Gen::flip}
     sub overlay   {goto &List::Gen::overlay}
     sub recursive {goto &List::Gen::recursive}
+    sub DESTROY {}
 }
 
 sub isagen (;$) {
@@ -684,11 +710,12 @@ perl's builtin C< glob > function.  here are a few examples:
     }}
 
 
-=item C< iterate CODE [START STOP [STEP]] >
+=item C< iterate CODE [LIMIT] >
 
 C< iterate > returns a generator that is created iteratively. C< iterate >
 implicitly caches its values, this allows random access normally not
-possible with an iterative algorithm
+possible with an iterative algorithm.  LIMIT is an optional number of times to
+iterate.  inside the CODE block, C<$_> is set to the current iteration number
 
     my $fib = do {
         my ($an, $bn) = (0, 1);
@@ -700,22 +727,65 @@ possible with an iterative algorithm
     };
 
 =cut
-    sub iterate (&;$$$) {
-        my ($code, @list) = shift;
-        gen {
-            if ($_ > $#list) {
-                 push @list, map $code->(), @list .. $_
-            }
-            $list[$_]
-        } &dwim
+    sub iterate (&;$) {
+       tiegen Iterate => @_, 9**9**9
     }
+    generator Iterate => sub {
+        my ($class, $code, $size) = @_;
+        my @list;
+        curse {
+            FETCH => sub {
+                (my $i = $_[1]) >= $size
+                    and croak "index $_[1] out of bounds [0 .. @{[$size - 1]}]";
+                if ($i > $#list) {
+                    $list[$_] = $code->() for @list .. $i
+                }
+                $list[$i]
+            },
+            realsize => sub {$size},
+            purge    => sub {croak 'can not purge iterative generator'},
+        } => $class
+    };
 
 
-=item C< gather CODE [START STOP [STEP]] >
+=item C< iterate_multi CODE [LIMIT] >
+
+the same as iterate, except CODE can return a list of any size.  inside CODE,
+C<$_> is set to the position in the returned generator where the block's
+returned list will be placed.
+
+=cut
+
+    sub iterate_multi (&;$) {
+       tiegen Iterate_Multi => @_, 9**9**9
+    }
+    mutable_gen Iterate_Multi => sub {
+        my ($class, $code, $size) = @_;
+        my $iter = 0;
+        my @list;
+        curse {
+            FETCH => sub {
+                my $i = $_[1];
+                while ($i > $#list) {
+                    $iter++ >= $size
+                        and croak "too many iterations requested: ".
+                                  "$iter out of bounds [0 .. @{[$size - 1]}]";
+                    local $_ = scalar @list;
+                    push @list, $code->();
+                }
+                $list[$i]
+            },
+            realsize => sub {$size > @list ? $size : scalar @list},
+            purge    => sub {croak 'can not purge iterative generator'},
+        } => $class
+    };
+
+
+=item C< gather CODE [LIMIT] >
 
 C< gather > returns a generator that is created iteratively.  rather than
 returning a value, you call C< take($return_value) > within the C< CODE >
-block. note that since perl does not have continuations, C< take(...) > does
+block. note that since perl5 does not have continuations, C< take(...) > does
 not pause execution of the block.  rather, it stores the return value, the
 block finishes, and then the generator returns the stored value.
 
@@ -737,17 +807,39 @@ if speed is a concern
     };
 
 =cut
-    sub gather (&;$$$) {
+    sub gather (&;$) {
         my $code   = shift;
         my $caller = (caller).'::take';
         unshift @_, sub {
             my $take;
             no strict 'refs';
+            no warnings 'redefine';
             local *$caller = sub {$take = shift};
             $code->();
             $take
         };
         goto &iterate;
+    }
+
+=item C< gather_multi CODE [LIMIT] >
+
+the same as C< gather > except you can C< take(...) > multiple times, and each
+can take a list.
+
+=cut
+
+    sub gather_multi (&;$) {
+        my $code   = shift;
+        my $caller = (caller).'::take';
+        unshift @_, sub {
+            my @take;
+            no strict 'refs';
+            no warnings 'redefine';
+            local *$caller = sub {push @take, @_; wantarray ? @_ : pop};
+            $code->();
+            @take
+        };
+        goto &iterate_multi;
     }
 
 
@@ -787,7 +879,7 @@ argument
             isagen or croak "seq takes a list of generators, not '$_'";
             $_->apply;
             [tied(@$_)->{FETCH}, $size+0, $size += $_->size]
-        }@_;
+        } @_;
         curse {
             FETCH => sub {
                 my $i = $_[1];
@@ -870,8 +962,7 @@ C< $List::Gen::FILTER_LOOKAHEAD = 0 >
     sub filter (&;$$$) {
         tiegen Filter => shift, tied @{&dwim}
     }
-    generator 'Mutable';
-    packager 'Filter Mutable TIEARRAY' => sub {
+    mutable_gen Filter => sub {
         my ($class, $code, $source) = @_;
         my ($fetch, $realsize     ) = @$source{qw/FETCH realsize/};
         my ($pos, @list) = 0;
@@ -906,7 +997,8 @@ C< $List::Gen::FILTER_LOOKAHEAD = 0 >
                            $srcsize = $size = $realsize->()},
             apply  => sub {
                 return if $pos == 9**9**9;
-                $srcsize = $realsize->();
+                ($srcsize = $realsize->()) < 9**9**9
+                    or croak "can't call ->apply on infinite filter";
                 for ($pos .. $srcsize - 1) {
                     local *_ = \scalar $fetch->(undef, $_);
                     $code->() and push @list, $_
@@ -955,7 +1047,7 @@ context, otherwise scalar context is used.
 
     my $gen = cache gen {slow($_)} \@source; # calls = 0
 
-    print $gen->[123]; # calls += 1
+    print $gen->[123];    # calls += 1
     ...
     print @$gen[123, 456] # calls += 1
 
@@ -1196,6 +1288,118 @@ normal array ref syntax
     };
 
 
+=item C<< While CODE GENERATOR >>
+
+=item C<< ->while(sub {...}) >>
+
+=item C<< Until CODE GENERATOR >>
+
+=item C<< ->until(sub {...}) >>
+
+C<< While / ->while(...) >> returns a new generator that will end when its
+passed in subroutine returns false. the C< until > pair ends when the subroutine
+returns true. each reads one element past its requested element, and saves this
+value only until the next call for efficiency, no other values are saved. each
+supports random access, but is optimized for sequential access.
+
+these functions have all of the caveats of C< filter >, should be considered
+experimental, and may change in future versions. the generator returned should
+only be dereferenced in a C< foreach > loop, otherwise, just like a C< filter >
+perl will expand it to the wrong size.
+
+the generator will return undef the first time an access is made and the check
+code indicates it is past the end.
+
+the generator will throw an error if accessed beyond its dynamically found limit
+subsequent times.
+
+    my $pow = While {$_ < 20} gen {$_**2};
+
+    say for @$pow;
+
+prints:
+
+    0
+    1
+    4
+    9
+    16
+
+in general, it makes more sense (and is faster) to write it this way:
+
+    my $pow = gen {$_**2};
+    for (@$gen) {
+        last if $_ > 20;
+        say;
+    }
+
+=cut
+    sub While (&$) {
+        my ($code, $source) = @_;
+        isagen $source
+            or croak '$_[1] to While must be a generator';
+        tiegen While => tied @$source, $code
+    }
+    sub Until (&$) {
+        my ($code, $source) = @_;
+        isagen $source
+            or croak '$_[1] to Until must be a generator';
+        tiegen While => tied @$source, sub {not &$code}
+    }
+
+    mutable_gen While => sub {
+        my ($class, $source, $check) = @_;
+        my ($fetch, $realsize)       = @$source{qw/FETCH realsize/};
+        my ($ok, $next, $endsize)    = (1, [-1, -1]);
+        my $mutable = $source->mutable;
+        curse {
+            FETCH => sub {
+                my $i = $_[1];
+                croak "while/until: index '$i' past end '".($endsize-1)."'"
+                    if !$ok and $i >= $endsize;
+
+                my $return
+                    = $$next[1] == $i
+                    ? $$next[0]
+                    : do {
+                        local *_ = \$fetch->(undef, $i);
+                        unless ($check->($i)) {
+                            $ok = 0;
+                            $endsize = $i;
+                            return
+                        }
+                        $_
+                    };
+                local *_ = \ $fetch->(undef, $i + 1);
+                $next = [$_, $i + 1];
+
+                unless ($check->($i + 1)) {
+                    $ok = 0;
+                    $endsize = $i + 1;
+                }
+                $return
+            },
+            realsize => sub {$ok ? $realsize->() : $endsize},
+            source   => sub {$source},
+            purge    => sub {$next = [-1, -1]},
+            apply    => sub {
+                if ($ok) {
+                    my $i = -1;
+                    my $max = $realsize->();
+                    while (++$i < $max) {
+                       local *_ = \$fetch->(undef, $i);
+                       unless ($check->($i)) {
+                           $ok = 0;
+                           $endsize = $i;
+                           return
+                       }
+                    }
+                }
+            },
+        } => $class
+    };
+
+
 =item C< d >
 
 =item C< d SCALAR >
@@ -1221,6 +1425,7 @@ is returned unchanged
         : $_
     }
     BEGIN {*deref = \&d}
+
 
 =item C< mapkey CODE KEY LIST >
 
@@ -1389,7 +1594,7 @@ comments / feedback / patches are also welcome.
 
 =head1 COPYRIGHT & LICENSE
 
-copyright 2009 Eric Strom.
+copyright 2009-2010 Eric Strom.
 
 this program is free software; you can redistribute it and/or modify it under
 the terms of either: the GNU General Public License as published by the Free
