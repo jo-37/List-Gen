@@ -13,10 +13,12 @@ WriteMakefile
                    'overload' => 0,
                    'Symbol' => 0,
                    'Exporter' => 0,
+                   'B' => 0,
                    'Carp' => 0,
                    'strict' => 0,
                    'Test::More' => 0,
-                   'List::Util' => 0
+                   'List::Util' => 0,
+                   'subs' => 0
                  }
 )
 ;

@@ -16,19 +16,23 @@ given the generator C< my $gen = gen {2**$_} 100; > which computes the first
 hundred powers of two, here are a few was to iterate over it (that all maintain
 lazy evaluation):
 
-    for (@$gen) {...}       # no need to reset generator between calls
+    for (@$gen) {...}      # no need to reset generator between calls
     for my $p (@$gen) {...}
     ... for @$gen;
 
-    while (<$gen>) {...}    # generator must be reset with `$gen->reset`
-    ... while <$gen>        # between calls, also be sure to `local $_` before
-                            # while loops that modify `$_`
+    while (<$gen>) {...}   # iterated generators must be reset with `$gen->reset`
+    ... while <$gen>       # before each loop, also be sure to `local $_` before
+                           # while loops that modify `$_`
     while (my $p = <$gen>) {...}
     while (defined(my $p = $gen->())) {...}
     while ($gen->more) {do something with $gen->next}
 
 since all of these iteration examples remain lazy (only generating values on
 demand), you can C< last > at any time to break out of the loop.
+
+you can also use the C< do > method:
+
+    $gen->do(sub {...}); # which calls sub on every element of $gen
 
 =head2 list creation
 
@@ -63,38 +67,10 @@ on:
 
     for (@{ +gen {$_**2} 1, 10 }) {...}  # a '+' or ';' before it does the trick
 
-=head2 glob syntax
-
-if you export the C< glob > function from L<List::Gen>, that function and the
-C<< <*.glob> >> operator will have one special case overridden.  if given an
-argument that matches the following pattern:
-
-   /^ ( .+ : )? number .. number ( (by | += | -= | [-+,]) number )?
-                                 ( (if | when) .+ )? $/
-
-then the arguments will be passed to C< range >, C< gen >, and C< filter > as
-appropriate. any argument that doesn't match that pattern will be passed to
-perl's builtin C< glob > function.  here are a few examples:
-
-    <1 .. 10>                    ~~  range 1, 10
-    <1 .. 10 by 2>               ~~  range 1, 10, 2
-    <10 .. 1 -= 2>               ~~  range 10, 1, -2
-    <x * x: 1 .. 10>             ~~  gen {$_ * $_} 1, 10
-    <sin: 0 .. 3.14 += 0.01>     ~~  gen {sin} 0, 3.14, 0.01
-    <1 .. 10 if x % 2>           ~~  filter {$_ % 2} 1, 10
-    <sin: 0 .. 100 by 3 if /5/>  ~~  filter {/5/} gen {sin} 0, 100, 3
-
-    for (@{< 0 .. 1_000_000_000 by 2 >}) { # starts instantly
-        print "$_\n";
-        last if $_ >= 100;        # exits the loop with only 51 values generated
-    }
-
-    my @files = <*.txt>;  # works as normal
-
 =head2 normal generators
 
 the C< range > and C< makegen > functions are the most primitive generators,
-C< range > producing a lazy list, and C< makegen > storing an array.
+C< range > producing a lazy list, and C< makegen > wrapping a perl array.
 
 you build upon these with the other generator functions/methods.  many
 generator functions will pass their arguments along to C< range > or
@@ -105,7 +81,7 @@ C< makegen > as needed, so you rarely need to use them directly.
     my @names = qw/bob alice eve/;
     gen {"hello $_!"} \@names   ~~  gen {"hello $_!"} makegen @names
 
-those were two examples of C< gen > the generator equivalent of C< map > that
+those were two examples of C< gen >, the generator equivalent of C< map > that
 attaches a code block to a generator.
 
 =head2 iterative generators
@@ -129,6 +105,11 @@ in two flavors, single element per iteration, and multi element per iteration.
             my @return = ...;
         }
     }
+
+you can also use the C<< ->from >> method to write an iterator that builds
+from an initial value:
+
+    say iterate{$_*2}->from(1)->str(10); # 1 2 4 8 16 32 64 128 256 512
 
 the iterative generators have some syntactic sugar you can use, in the form of
 C< gather {...} > and C< take(...) >:
@@ -265,14 +246,70 @@ of the fibonacci sequence would generate an exponentially increasing number of
 calls to itself as the list grows longer.  C< cache > prevents any index from
 being calculated more than once.
 
+=head3 more ways to write the fibonacci sequence
+
+=over 4
+
+=item C<< my $fib = <0, 1, *+*...>; >>
+
+=item C<< my $fib = <0, 1, {$^a + $^b}...>; >>
+
+=item C<< my $fib = ([0, 1] + iterate {sum self($_, $_ + 1)})->rec; >>
+
+=item C<< my $fib = ([0, 1] + iterate {sum fib($_, $_ + 1)})->rec('fib'); >>
+
+=item C<< my $fib = (iterate {$_ < 2 ? $_ : sum self($_ - 1, $_ - 2)})->rec; >>
+
+=item C<< my $fib; $fib = cache gen {$_ < 2 ? $_ : sum $fib->($_ - 1, $_ - 2)}; >>
+
+=back
+
+=head2 stream generators
+
+here is an example of a sieve of eratosthenes implemented with generators:
+
+    my $primes = do {
+        my $src = <2..>;
+        iterate {
+            my ($x, $xs) = $src->x_xs;
+            $src = $xs->grep_stream(sub {$_ % $x});
+            $x
+        }
+    };
+
+in this example, the list is filtered with C< grep_stream/filter_stream > since
+the algorithm only reads the source once, and reads it in order.  a regular
+C< filter/grep > call could be used, but it would unnecessarily use up a lot
+of memory since each call would have to build up a new random-access cache.
+
+the inefficiency addressed above could also be fixed by modifying the filtering
+function itself:
+
+    my $primes = do {
+        my @p;
+        <2..>->grep(sub {
+            my $i = $_;
+            $i % $_ or return for @p;
+            push @p, $i;
+        })
+    };
+
+of course if you want prime numbers, just use the C< primes > function:
+
+    my $primes = List::Gen::primes;
+
+which is implemented as a precomputed sieve of eratosthenes in a string buffer.
+initially it is ready to test the primality of numbers below 1000.  if a higher
+number is checked, the sieve will grow to 10 times larger than that value.
+beyond 1e7 primes are checked with simple trial division.
 
 =head1 AUTHOR
 
-Eric Strom, C<< <ejstrom at gmail.com> >>
+Eric Strom, C<< <asg at cpan.org> >>
 
 =head1 COPYRIGHT & LICENSE
 
-copyright 2009-2010 Eric Strom.
+copyright 2009-2011 Eric Strom.
 
 this program is free software; you can redistribute it and/or modify it under
 the terms of either: the GNU General Public License as published by the Free
@@ -281,5 +318,6 @@ Software Foundation; or the Artistic License.
 see http://dev.perl.org/licenses/ for more information.
 
 =cut
+
 
 __PACKAGE__ if 'first require';

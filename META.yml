@@ -1,7 +1,7 @@
 ---
 abstract: 'provides functions for generating lists'
 author:
-  - 'Eric Strom <ejstrom@gmail.com>'
+  - 'Eric Strom <asg@cpan.org>'
 build_requires:
   Test::More: 0
 configure_requires:
@@ -15,10 +15,25 @@ name: List-Gen
 provides:
   List::Gen:
     file: lib/List/Gen.pm
-    version: 0.80
+    version: 0.90
   List::Gen::Cookbook:
     file: lib/List/Gen/Cookbook.pm
+  List::Gen::Haskell:
+    file: lib/List/Gen/Haskell.pm
+    version: 0
+  List::Gen::Lazy:
+    file: lib/List/Gen/Lazy.pm
+  List::Gen::Lazy::Builtins:
+    file: lib/List/Gen/Lazy/Builtins.pm
+    version: 0
+  List::Gen::Lazy::Ops:
+    file: lib/List/Gen/Lazy/Ops.pm
+  List::Gen::Perl6:
+    file: lib/List/Gen/Perl6.pm
+  List::Generator:
+    file: lib/List/Generator.pm
 requires:
+  B: 0
   Carp: 0
   Exporter: 0
   List::Util: 0
@@ -26,7 +41,8 @@ requires:
   Symbol: 0
   overload: 0
   strict: 0
+  subs: 0
   warnings: 0
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.80
+version: 0.90
