@@ -86,7 +86,7 @@ package List::Gen;
     our $sv2cv;
     my $MAX_IDX = eval {require POSIX; POSIX::DBL_MAX()} || 2**53 - 1;
 
-    our $VERSION = '0.90';
+    our $VERSION = '0.91';
 
 =head1 NAME
 
@@ -94,7 +94,7 @@ List::Gen - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.90
+version 0.91
 
 =head1 SYNOPSIS
 
@@ -4973,19 +4973,31 @@ you can even write things like:
                 $size = $depth;
                 return;
             } : do {
-                my $pos = @source >> 1;
+                my $pos = $#source >> 1;
                 my $src = $source[$pos];
                 my $i;
+                my ($min, $max);
                 sub {
                     $i = $_[1];
                     croak "sequence index $i out of bounds [0 .. @{[$size - 1]}]"
                         if $i >= $size;
 
-                    until ($$src[LOW] <= $i and $i < $$src[HIGH]) {
-                        $pos = ($i < $$src[LOW] ? $pos : $pos + @source) >> 1;
-                        $src = $source[$pos]
+                    $min = 0;
+                    $max = $#source;
+
+                    while ($min <= $max) {
+                        if ($$src[HIGH] <= $i) {
+                            $min = $pos + 1
+                        }
+                        elsif ($$src[LOW] > $i) {
+                            $max = $pos - 1
+                        }
+                        else {
+                            return $$src[FETCH]->(undef, $i - $$src[LOW])
+                        }
+                        $pos = ($min + $max) >> 1;
+                        $src = $source[$pos];
                     }
-                    $$src[FETCH]->(undef, $i - $$src[LOW])
                 }
             },
             fsize    => sub {$size},

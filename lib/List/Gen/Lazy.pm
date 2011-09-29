@@ -20,15 +20,19 @@ package
     no if $] > 5.012, warnings => 'illegalproto';
 
 
-=head1 List::Gen::Lazy
+=head1 NAME
 
 List::Gen::Lazy - perl6 / haskell like laziness in perl5
+
+=head1 SYNOPSIS
 
 this module provides tools to implement perl6/haskell style lazy programming
 in perl5.
 
 this module is a mixin to L<List::Gen> that adds functions to C< List::Gen's >
 namespace and exportable function list
+
+=head1 FUNCTIONS
 
 =over 8
 

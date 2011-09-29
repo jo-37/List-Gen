@@ -19,7 +19,7 @@ package List::Gen::Haskell;
     no if ($] > 5.012), warnings => 'illegalproto';
 
 
-=head1 List::Gen::Haskell
+=head1 NAME
 
 List::Gen::Haskell - the haskell prelude in perl5
 

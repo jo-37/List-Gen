@@ -4,7 +4,7 @@ package List::Gen::Lazy::Ops;
     use lib '../../';
     use List::Gen::Lazy 'fn';
 
-=head1 List::Gen::Lazy::Ops
+=head1 NAME
 
 List::Gen::Lazy::Ops - perl ops with partial + lazy application
 

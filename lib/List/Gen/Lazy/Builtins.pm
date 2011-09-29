@@ -125,7 +125,7 @@ package List::Gen::Lazy::Builtins;
     $EXPORT_TAGS{':base'} = \@EXPORT;
 
 
-=head1 List::Gen::Builtins
+=head1 NAME
 
 List::Gen::Builtins - perl builtin functions with partial + lazy application
 
