@@ -364,6 +364,8 @@ dedicated to debugging:
     # perl:    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ...]
     #  at file.pl line 12
 
+pass C< debug > a number to control how many elements are printed.
+
     my $gen = <0..>->watch('range')
                    ->grep('even')->watch('grep')
                    ->map('**2')->watch('map')

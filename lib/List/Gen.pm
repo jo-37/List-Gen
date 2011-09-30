@@ -85,7 +85,7 @@ package List::Gen;
 
     my $MAX_IDX = eval {require POSIX; POSIX::DBL_MAX()} || 2**53 - 1;
 
-    our $VERSION = '0.92';
+    our $VERSION = '0.93';
 
 =head1 NAME
 
@@ -93,7 +93,7 @@ List::Gen - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.92
+version 0.93
 
 =head1 SYNOPSIS
 
@@ -302,7 +302,7 @@ functions, and all functions from List::Util are available.
 
 =over 4
 
-=item C< mapn CODE NUM LIST >
+=item mapn C< {CODE} NUM LIST >
 
 this function works like the builtin C< map > but takes C< NUM > sized steps
 over the list, rather than one element at a time. inside the C< CODE > block,
@@ -341,9 +341,9 @@ C< CODE > block will be executed in void context for efficiency.
     }
 
 
-=item C< by NUM LIST >
+=item by C< NUM LIST >
 
-=item C< every NUM LIST >
+=item every C< NUM LIST >
 
 C< by > and C< every > are exactly the same, and allow you to add variable step
 size to any other list control structure with whichever reads better to you.
@@ -431,7 +431,7 @@ only need a few, the generator won't need to compute all of the other slices.
     };
 
 
-=item C< apply {CODE} LIST >
+=item apply C< {CODE} LIST >
 
 apply a function that modifies C< $_ > to a shallow copy of C< LIST > and
 returns the copy
@@ -448,7 +448,7 @@ returns the copy
     }
 
 
-=item C< zip LIST >
+=item zip C< LIST >
 
 C< zip > takes a list of array references and generators. it interleaves the
 elements of the passed in sequences to create a new list. C< zip > continues
@@ -496,7 +496,7 @@ from the remaining arguments.
     }
 
 
-=item C< zipmax LIST >
+=item zipmax C< LIST >
 
 interleaves the passed in lists to create a new list. C< zipmax > continues
 until the end of the longest list, C< undef > is returned for missing elements
@@ -537,7 +537,7 @@ C< zipmax > provides the same functionality as C< zip > did in versions before
     }
 
 
-=item C< tuples LIST >
+=item tuples C< LIST >
 
 interleaves the passed in lists to create a new list of arrays. C< tuples >
 continues until the end of the shortest list. C< LIST > can be any combination
@@ -567,7 +567,7 @@ in scalar context, C< tuples > returns a generator:
     }
 
 
-=item C< cap LIST >
+=item cap C< LIST >
 
 C< cap > captures a list, it is exactly the same as C<< sub{\@_}->(LIST) >>
 
@@ -671,15 +671,20 @@ indicies will be generated.
 
 all generators have the following methods by default
 
-    $gen->next           # iterates over generator ~~ $gen->get($gen->index++)
-    $gen->()             # same.  iterators return () when past the end
+iteration:
 
-    $gen->more           # test if $gen->index not past end
-    $gen->reset          # reset iterator to start
-    $gen->reset(4)       # $gen->next returns $$gen[4]
-    $gen->index          # fetches the current position
-    $gen->index = 4      # same as $gen->reset(4)
-    $gen->nxt            # next until defined
+    $gen->next       # iterates over generator ~~ $gen->get($gen->index++)
+    $gen->()         # same.  iterators return () when past the end
+
+    $gen->more       # test if $gen->index not past end
+    $gen->reset      # reset iterator to start
+    $gen->reset(4)   # $gen->next returns $$gen[4]
+    $gen->index      # fetches the current position
+    $gen->index = 4  # same as $gen->reset(4)
+    $gen->nxt        # next until defined
+    $gen->iterator   # returns the $gen->next coderef iterator
+
+indexing:
 
     $gen->get(index)     # returns $$gen[index]
     $gen->(index)        # same
@@ -691,10 +696,14 @@ all generators have the following methods by default
     $gen->all            # same as list context '@$gen' but faster
     $gen->list           # same as $gen->all
 
-    $gen->apply          # causes a mutable generator to determine its true size
-    $gen->is_mutable     # can the generator change size?
-    $gen->purge          # purge any caches in the source chain
-    $gen->type           # returns the package name of the generator
+introspection:
+
+    $gen->apply       # causes a mutable generator to determine its true size
+    $gen->is_mutable  # can the generator change size?
+    $gen->purge       # purge any caches in the source chain
+    $gen->type        # returns the package name of the generator
+
+printing:
 
     $gen->join(' ')      # join ' ', $gen->all
     $gen->str            # join $", $gen->all (recursive with nested generators)
@@ -709,36 +718,45 @@ all generators have the following methods by default
     $gen->debug          # carps debugging information
     $gen->watch(...)     # prints ..., value, $/ each time a value is requested
 
+eager looping:
+
     $gen->do(sub {...})  # for (@$gen) {...} # but faster
     $gen->each(sub{...}) # same
 
-    $gen->head           # $gen->get(0)
-    $gen->tail           # $gen->slice(<1..>)  # lazy slices
-    $gen->drop(2)        # $gen->slice(<2..>)
-    $gen->take(4)        # $gen->slice(<0..3>)
-    $gen->x_xs           # ($gen->head, $gen->tail)
+slicing:
 
-    $gen->range          # range(0, $gen->size - 1)
-    $gen->keys           # same as $gen->range, but a list in list context
-    $gen->values         # same as $gen, but a list in list context
-    $gen->kv             # zip($gen->range, $gen)
-    $gen->pairs          # same as ->kv, but each pair is a tuple (array ref)
-    $gen->tuples($gen2)  # tuples($gen, $gen2)
-    $gen->deref          # tuples($a, $b)->deref  ~~  zip($a, $b)
+    $gen->head     # $gen->get(0)
+    $gen->tail     # $gen->slice(<1..>)  # lazy slices
+    $gen->drop(2)  # $gen->slice(<2..>)
+    $gen->take(4)  # $gen->slice(<0..3>)
+    $gen->x_xs     # ($gen->head, $gen->tail)
 
-    $gen->pick           # return a random element from $gen
-    $gen->pick(n)        # return n random elements from $gen
-    $gen->roll           # same as pick
-    $gen->roll(n)        # pick and replace
-    $gen->shuffle        # a lazy shuffled generator
-    $gen->random         # an infinite generator that returns random elements
-    $gen->uniq           # $gen->filter(do {my %seen; sub {not $seen{$_}++}})
+accessors:
 
-    $gen->first(sub {$_ > 5})    # first {$_ > 5} $gen->all # but faster
-    $gen->first('>5')            # same
-    $gen->last(...)              # $gen->reverse->first(...)
-    $gen->first_idx(...)         # same as first, but returns the index
+    $gen->range   # range(0, $gen->size - 1)
+    $gen->keys    # same as $gen->range, but a list in list context
+    $gen->values  # same as $gen, but a list in list context
+    $gen->kv      # zip($gen->range, $gen)
+    $gen->pairs   # same as ->kv, but each pair is a tuple (array ref)
+
+randomization:
+
+    $gen->pick     # return a random element from $gen
+    $gen->pick(n)  # return n random elements from $gen
+    $gen->roll     # same as pick
+    $gen->roll(n)  # pick and replace
+    $gen->shuffle  # a lazy shuffled generator
+    $gen->random   # an infinite generator that returns random elements
+
+searching:
+
+    $gen->first(sub {$_ > 5})  # first {$_ > 5} $gen->all # but faster
+    $gen->first('>5')          # same
+    $gen->last(...)            # $gen->reverse->first(...)
+    $gen->first_idx(...)       # same as first, but returns the index
     $gen->last_idx(...)
+
+sorting:
 
     $gen->sort                   # sort $gen->all
     $gen->sort(sub {$a <=> $b})  # sort {$a <=> $b} $gen->all
@@ -747,43 +765,57 @@ all generators have the following methods by default
                                  #        sort {$$a[1] cmp $$b[1]}
                                  #        map  {[$_ => uc]} $gen->all
 
+reductions:
+
     $gen->reduce(sub {$a + $b})  # reduce {$a + $b} $gen->all
     $gen->reduce('+')            # same
-    $gen->sum             # $gen->reduce('+')
-    $gen->product         # $gen->reduce('*')
-    $gen->scan('+')       # [$$gen[0], sum(@$gen[0..1]), sum(@$gen[0..2]), ...]
-    $gen->min             # min $gen->all
-    $gen->max             # max $gen->all
+    $gen->sum         # $gen->reduce('+')
+    $gen->product     # $gen->reduce('*')
+    $gen->scan('+')   # [$$gen[0], sum(@$gen[0..1]), sum(@$gen[0..2]), ...]
+    $gen->min         # min $gen->all
+    $gen->max         # max $gen->all
 
-    $gen->cycle           # infinite repetition of a generator
-    $gen->rotate(1)       # [$gen[1], $gen[2] ... $gen[-1], $gen[0]]
-    $gen->rotate(-1)      # [$gen[-1], $gen[0], $gen[1] ... $gen[-2]]
+transforms:
 
-    $gen->zip($gen2, ...) # takes any number of generators or array refs
-    $gen->cross($gen2)    # cross product
-    $gen->cross2d($gen2)  # returns a 2D generator containing the
-                          # same elements as the flat ->cross generator
+    $gen->cycle       # infinite repetition of a generator
+    $gen->rotate(1)   # [$gen[1], $gen[2] ... $gen[-1], $gen[0]]
+    $gen->rotate(-1)  # [$gen[-1], $gen[0], $gen[1] ... $gen[-2]]
+    $gen->uniq        # $gen->filter(do {my %seen; sub {not $seen{$_}++}})
 
-    # the three methods above all use the comma operator (C< ',' >) by default
-    # to join their arguments.  if the first argument to any of these methods
-    # is code or a code like string, that will be used to join the arguments
+combinations:
 
-        $gen->zip(',' => $gen2)  # same as $gen->zip($gen2)
-        $gen->zip('.' => $gen2)  # $gen[0].$gen2[0], $gen[1].$gen2[1], ...
-        # more detail in the overloaded operators section below
+    $gen->zip($gen2, ...)  # takes any number of generators or array refs
+    $gen->cross($gen2)     # cross product
+    $gen->cross2d($gen2)   # returns a 2D generator containing the same
+                           # elements as the flat ->cross generator
+    $gen->tuples($gen2)    # tuples($gen, $gen2)
+    $gen->deref            # tuples($a, $b)->deref  ~~  zip($a, $b)
 
-    $gen->clone          # copy a generator, resets the index
-    $gen->copy           # copy a generator, preserves the index
+the C< zip > and the C< cross > methods all use the comma operator (C< ',' >)
+by default to join their arguments.  if the first argument to any of these
+methods is code or a code like string, that will be used to join the arguments.
+more detail in the overloaded operators section below
 
-    $gen->leaves         # returns a coderef iterator that will perform a
-                         # depth first traversal of the edge nodes in a tree
-                         # of nested generators.  a full run of the iterator
-                         # will ->reset all of the internal generators
+    $gen->zip(',' => $gen2)  # same as $gen->zip($gen2)
+    $gen->zip('.' => $gen2)  # $gen[0].$gen2[0], $gen[1].$gen2[1], ...
 
-    $gen->iterator       # returns the $gen->next coderef iterator
+utility:
 
-    $gen->take_while(...) # While {...} $gen
-    $gen->drop_while(...) # $gen->drop( $gen->first_idx(sub {...}) )
+    $gen->clone  # copy a generator, resets the index
+    $gen->copy   # copy a generator, preserves the index
+
+traversal:
+
+    $gen->leaves  # returns a coderef iterator that will perform a depth first
+                  # traversal of the edge nodes in a tree of nested generators.
+                  # a full run of the iterator will ->reset all of the internal
+                  # generators
+
+while:
+
+    $gen->while(...)       # While {...} $gen
+    $gen->take_while(...)  # same
+    $gen->drop_while(...)  # $gen->drop( $gen->first_idx(sub {...}) )
 
     $gen->span           # collects $gen->next calls until one
                          # returns undef, then returns the collection.
@@ -792,7 +824,6 @@ all generators have the following methods by default
                          # returns false, it is equivalent to but more efficient
                          # than ($gen->take_while(...), $gen->drop_while(...))
     $gen->break(...)     # $gen->span(sub {not ...})
-
 
 the methods duplicate and extend the tied functionality and are necessary when
 working with indices outside of perl's array limit C< (0 .. 2**31 - 1) > or when
@@ -1744,7 +1775,7 @@ several predicates are available to use with the filtering methods:
 
     sub is_inf {$_[0]->size >= 9**9**9}
     sub x_xs   {$_[0]->head, $_[0]->tail}
-    sub idx    {$_[0]->drop( $_[0]->index )}
+    sub idx    {$_[0]->drop( $_[0]->index + 0 )}
 
     sub tee {
         my @ret;
@@ -1868,11 +1899,12 @@ several predicates are available to use with the filtering methods:
         my $src = shift;
         join defined $" ? $" : '' => $src->flat(@_)
     }
-    sub join {
+    {no warnings 'once';
+    *join = sub {
         join @_ > 1 ? $_[1] : '',
-             @_ > 2 ? $_[0]->slice(0 .. $_[2] - 1) : $_[0]->all,
+             @_ > 2 ? $_[0]->take($_[2])->all : $_[0]->all,
              @_[3 .. $#_]
-    }
+    }}
     sub flat {
         my $src = shift;
         map {
@@ -1883,12 +1915,11 @@ several predicates are available to use with the filtering methods:
                         ? &List::Gen::makegen($_)->flat(@_)
                         : $_
                 : $_
-        }
-            (@_ and $_[0] < 9**9**9)
-                ? $src->size <= $_[0]
-                    ? $src->all
-                    : ($src->slice(0 .. $_[0] - 1), @_ == 2 ? $_[1] : ())
-                : $src->all
+        } (@_ and $_[0] < 9**9**9)
+            ? $src->size <= $_[0]
+                ? $src->all
+                : ($src->slice(0 .. $_[0] - 1), @_ == 2 ? $_[1] : ())
+            : $src->all
     }
     sub say {
         local $\ = "\n";
@@ -1910,15 +1941,20 @@ several predicates are available to use with the filtering methods:
     }
     {my $bool = sub {$_[0] ? 'yes' : 'no'};
     sub debug {
-        my $gen    = shift;
-        my $stream = tied(@$gen)->can('index');
-        my $perl   = ($stream ? $gen->idx : $gen)->perl(@_, 10, '...');
+        my ($gen, $num) = (@_, 10);
+
         my $max    = $gen->size - 1;
         $max = 'inf' if $max >= 9**9**9;
 
-        Carp::carp CORE::join '' => map {
+        my $stream = tied(@$gen)->can('index');
+
+        my $perl = !$num ? '' :
+            ($stream ? 'from '.$gen->index.': ' : '') .
+            ($stream ? $gen->idx : $gen)->perl($num, '...');
+
+        Carp::carp join '' => map {
             sprintf "%-8s %s\n", "$$_[0]:",
-                $#$_ > 0 ? CORE::join ', ' => @$_[1 .. $#$_] : 'none'
+                $#$_ > 0 ? join ', ' => @$_[1 .. $#$_] : 'none'
         }   [debug   => $gen],
             [type    => $gen->type],
             [source  => map {ref =~ /(.+)::/} tied(@$gen)->sources],
@@ -1926,13 +1962,13 @@ several predicates are available to use with the filtering methods:
             [stream  => $bool->($stream)],
             [range   => "[0 .. $max]"],
             [index   => $gen->index],
-            [perl    => $perl];
+            $perl ? [perl    => $perl] :();
         $gen
     }}
 
     sub watch {
         my ($gen, $fh) = shift;
-        my $msg = CORE::join ' ', grep {
+        my $msg = join ' ', grep {
             not (Scalar::Util::openhandle $_ and $fh = $_)
         } @_;
         $msg .= ': ' if $msg =~ /^\w+$/;
@@ -2672,7 +2708,7 @@ several predicates are available to use with the filtering methods:
 
 =over 4
 
-=item C< range SIZE >
+=item range C< SIZE >
 
 returns a generator from C< 0 > to C< SIZE - 1 >
 
@@ -2681,7 +2717,7 @@ returns a generator from C< 0 > to C< SIZE - 1 >
     say $range->str;  # 0 1 2 3 4 5 6 7 8 9
     say $range->size; # 10
 
-=item C< range START STOP [STEP] >
+=item range C< START STOP [STEP] >
 
 returns a generator for values from C< START > to C< STOP > by C< STEP >,
 inclusive.
@@ -2794,15 +2830,15 @@ amount of memory.
     }
 
 
-=item C< gen CODE GENERATOR >
+=item gen C< {CODE} GENERATOR >
 
-=item C< gen CODE ARRAYREF >
+=item gen C< {CODE} ARRAYREF >
 
-=item C< gen CODE SIZE >
+=item gen C< {CODE} SIZE >
 
-=item C< gen CODE [START STOP [STEP]] >
+=item gen C< {CODE} [START STOP [STEP]] >
 
-=item C< gen CODE GLOBSTRING >
+=item gen C< {CODE} GLOBSTRING >
 
 C< gen > is the equivalent of C< map > for generators. it returns a generator
 that will apply the C< CODE > block to its source when accessed. C< gen > takes
@@ -2891,7 +2927,7 @@ which is the same as the following if C< glob > is imported:
     };
 
 
-=item C< makegen ARRAY >
+=item makegen C< ARRAY >
 
 C< makegen > converts an array to a generator. this is normally not needed as
 most generator functions will call it automatically if passed an array reference
@@ -2932,7 +2968,7 @@ assignment does not lengthen the array.
         };
 
 
-=item C< list LIST >
+=item list C< LIST >
 
 C< list > converts a list to a generator.  it is a thin wrapper around
 C< makegen > that simply passes its C< @_ > to C< makegen >.  that means the
@@ -2954,7 +2990,7 @@ the same functionality:
     sub list {makegen @_}
 
 
-=item C< array [ARRAY] >
+=item array C< [ARRAY] >
 
 C< array > is similar to C< makegen > except the array is considered a mutable
 data source.  because of this, certain optimizations are not possible, and the
@@ -3012,7 +3048,7 @@ is also a generator.
         CLEAR     => sub { @{$_[0]->capture} = ()};
 
 
-=item C<< file FILE [OPTIONS] >>
+=item file C<< FILE [OPTIONS] >>
 
 C< file > creates an C< array > generator from a file name or file handle
 using C< Tie::File >.  C< OPTIONS > are passed to C< Tie::File >
@@ -3034,7 +3070,7 @@ using C< Tie::File >.  C< OPTIONS > are passed to C< Tie::File >
     }
 
 
-=item C<< repeat SCALAR [SIZE] >>
+=item repeat C<< SCALAR [SIZE] >>
 
 an infinite generator that returns C<SCALAR> for every position. it is
 equivalent to C< gen {SCALAR} > but a little faster.
@@ -3053,7 +3089,7 @@ equivalent to C< gen {SCALAR} > but a little faster.
     };
 
 
-=item C< iterate CODE [LIMIT|GENERATOR] >
+=item iterate C< {CODE} [LIMIT|GENERATOR] >
 
 C< iterate > returns a generator that is created iteratively. C< iterate >
 implicitly caches its values, this allows random access normally not
@@ -3133,7 +3169,7 @@ same way as the like named haskell function:
     }
 
 
-=item C< iterate_stream CODE [LIMIT] >
+=item iterate_stream C< {CODE} [LIMIT] >
 
 C< iterate_stream > is a version of C< iterate > that does not cache the
 generated values.  because of this, access to the returned generator must be
@@ -3186,7 +3222,7 @@ monotonically increasing (such as repeated calls to C<< $gen->next >>).
         purge => sub {croak 'can not purge iterative generator'};
 
 
-=item C< iterate_multi CODE [LIMIT] >
+=item iterate_multi C< {CODE} [LIMIT] >
 
 the same as C<iterate>, except CODE can return a list of any size.  inside CODE,
 C<$_> is set to the position in the returned generator where the block's
@@ -3313,7 +3349,7 @@ C< iterate > for the rules and effects of this.
         };
 
 
-=item C< iterate_multi_stream CODE [LIMIT] >
+=item iterate_multi_stream C< {CODE} [LIMIT] >
 
 C< iterate_multi_stream > is a version of C< iterate_multi > that does not cache
 the generated values.  because of this, access to the returned generator must be
@@ -3401,7 +3437,7 @@ supported.
         purge => sub {Carp::croak 'can not purge iterative generator'};
 
 
-=item C< gather CODE [LIMIT] >
+=item gather C< {CODE} [LIMIT] >
 
 C< gather > returns a generator that is created iteratively.  rather than
 returning a value, you call C< take($return_value) > within the C< CODE >
@@ -3449,7 +3485,7 @@ a non-cached version C< gather_stream > is also available, see C< iterate_stream
     BEGIN {*gatherS = *gather_stream}
 
 
-=item C< gather_multi CODE [LIMIT] >
+=item gather_multi C< {CODE} [LIMIT] >
 
 the same as C< gather > except you can C< take(...) > multiple times, and each
 can take a list.  C< gather_multi_stream > is also available.
@@ -3479,7 +3515,7 @@ can take a list.  C< gather_multi_stream > is also available.
     }
 
 
-=item C< glob STRING >
+=item glob C< STRING >
 
 =item C<< <list comprehension> >>
 
@@ -3818,7 +3854,7 @@ string:
     }}
 
 
-=item C<< List::Gen ... >>
+=item List::Gen C<< ... >>
 
 the subroutine C< Gen > in the package C< List:: > is a dwimmy function that
 produces a generator from a variety of sources.  since C< List::Gen > is a fully
@@ -3862,7 +3898,7 @@ mostly for if you have not imported anything: C< use List::Gen (); >
     BEGIN {*List::Generator = *List::Gen}
 
 
-=item C<< vecgen [BITS] [SIZE] [DATA] >>
+=item vecgen C<< [BITS] [SIZE] [DATA] >>
 
 C< vecgen > wraps a bit vector in a generator.  BITS defaults to 8.  SIZE
 defaults to infinite.  DATA defaults to an empty string.
@@ -3894,7 +3930,7 @@ or with the C<< ->set(...) >> method:
     };
 
 
-=item C< primes >
+=item primes
 
 utilizing the same mechanism as the C<< <1..>->grep('prime') >> construct, the
 C< primes > function returns an equivalent, but more efficiently constructed
@@ -3981,7 +4017,7 @@ C< primes > always returns the same generator.
 
 =over 4
 
-=item C< slice SOURCE_GEN, RANGE_GEN >
+=item slice C< SOURCE_GEN RANGE_GEN >
 
 C< slice > uses C< RANGE_GEN > to generate the indices used to take a lazy
 slice of C< SOURCE_GEN >.
@@ -4059,7 +4095,7 @@ generator into a relatively efficient operation.
         mutable => sub {0};
 
 
-=item C< test CODE [ARGS_FOR_GEN] >
+=item test C< {CODE} [ARGS_FOR_GEN] >
 
 C< test > attaches a code block to a generator.  it takes arguments suitable for
 the C< gen > function. accessing an element of the returned generator will call
@@ -4086,11 +4122,11 @@ over only the passing values of a tested generator.
     }
 
 
-=item C< cache CODE >
+=item cache C< {CODE} >
 
-=item C< cache GENERATOR >
+=item cache C< GENERATOR >
 
-=item C<< cache list => ... >>
+=item cache C<< list => ... >>
 
 C< cache > will return a cached version of the generators returned by functions
 in this package. when passed a code reference, cache returns a memoized code ref
@@ -4144,7 +4180,7 @@ context, otherwise scalar context is used.
     purge => sub {%{$_[0]->cached} = ()};
 
 
-=item C< flip GENERATOR >
+=item flip C< GENERATOR >
 
 C< flip > is C< reverse > for generators. the C<< ->apply >> method is called on
 C< GENERATOR >.  C<< $gen->flip >> and C<< $gen->reverse >> do the same thing.
@@ -4172,9 +4208,9 @@ C< GENERATOR >.  C<< $gen->flip >> and C<< $gen->reverse >> do the same thing.
     };
 
 
-=item C< expand GENERATOR >
+=item expand C< GENERATOR >
 
-=item C< expand SCALE GENERATOR >
+=item expand C< SCALE GENERATOR >
 
 C< expand > scales a generator with elements that return equal sized lists. it
 can be passed a list length, or will automatically determine it from the length
@@ -4252,7 +4288,7 @@ C< expand > in array ref mode is the same as calling the C<< ->deref >> method.
     };
 
 
-=item C< contract SCALE GENERATOR >
+=item contract C< SCALE GENERATOR >
 
 C< contract > is the inverse of C< expand >
 
@@ -4271,9 +4307,9 @@ also called C< collect >
     BEGIN {*collect = \&contract}
 
 
-=item C< scan CODE GENERATOR >
+=item scan C< {CODE} GENERATOR >
 
-=item C< scan CODE LIST >
+=item scan C< {CODE} LIST >
 
 C< scan > is a C< reduce > that builds a list of all the intermediate values.
 C< scan > returns a generator, and is the function behind the C<< <[..+]> >>
@@ -4320,7 +4356,7 @@ a stream version C< scan_stream > is also available.
     BEGIN {*scanS = *scan_stream}
 
 
-=item C< overlay GENERATOR PAIRS >
+=item overlay C< GENERATOR PAIRS >
 
 overlay allows you to replace the values of specific generator cells.  to set
 the values, either pass the overlay constructor a list of pairs in the form
@@ -4359,7 +4395,7 @@ normal array ref syntax
     };
 
 
-=item C< recursive [NAME] GENERATOR  >
+=item recursive C< [NAME] GENERATOR  >
 
 C< recursive > defines a subroutine named C< self(...) > or C< NAME(...) >
 during generator execution.  when called with no arguments it returns the
@@ -4419,7 +4455,7 @@ with C< iterate > above.
 
 =over 4
 
-=item C< filter CODE [ARGS_FOR_GEN] >
+=item filter C< {CODE} [ARGS_FOR_GEN] >
 
 C< filter > is a lazy version of C< grep > which attaches a code block to a
 generator. it returns a generator that will test elements with the code
@@ -4530,7 +4566,7 @@ C< $List::Gen::LOOKAHEAD = 0 > or use C< filter_ ... >
     }
 
 
-=item C< filter_stream CODE ... >
+=item filter_stream C< {CODE} ... >
 
 as C< filter > runs, it builds up a cache of the elements that pass the filter.
 this enables efficient random access in the returned generator. sometimes this
@@ -4657,9 +4693,9 @@ C<< $gen->grep_stream(...) >>
     };
 
 
-=item C<< While CODE GENERATOR >>
+=item While C<< {CODE} GENERATOR >>
 
-=item C<< Until CODE GENERATOR >>
+=item Until C<< {CODE} GENERATOR >>
 
 C<< While / ->while(...) >> returns a new generator that will end when its
 passed in subroutine returns false. the C< until > pair ends when the subroutine
@@ -4776,7 +4812,7 @@ in general, it is faster to write it this way:
     };
 
 
-=item C< mutable GENERATOR >
+=item mutable C< GENERATOR >
 
 =item C<< $gen->mutable >>
 
@@ -4866,9 +4902,7 @@ C<< ->when_done(sub{...}) >> methods.
         };
 
 
-=item C< done >
-
-=item C< done LAST_RETURN_VALUE >
+=item done C< [LAST_RETURN_VALUE] >
 
 throws an exception that will be caught by a mutable generator indicating that
 the generator should set its size. if a value is passed to done, that will be
@@ -4887,9 +4921,9 @@ the value returned on the previous call.
     }
 
 
-=item C< done_if COND VALUE >
+=item done_if C< COND VALUE >
 
-=item C< done_unless COND VALUE >
+=item done_unless C< COND VALUE >
 
 these are convenience functions for throwing C< done > exceptions.  if the
 condition does not indicate C< done > then the function returns C< VALUE >
@@ -4906,7 +4940,7 @@ condition does not indicate C< done > then the function returns C< VALUE >
 
 =over 4
 
-=item C< sequence LIST >
+=item sequence C< LIST >
 
 string generators, arrays, and scalars together.
 
@@ -5021,7 +5055,7 @@ you can even write things like:
 }
 
 
-=item C< zipgen LIST >
+=item zipgen C< LIST >
 
 C< zipgen > is a lazy version of C< zip >. it takes any combination of
 generators and array refs and returns a generator.  it is called automatically
@@ -5095,7 +5129,7 @@ C< zipgen > can be spelled C< genzip >
     };
 
 
-=item C< unzip LIST >
+=item unzip C< LIST >
 
 C< unzip > is the opposite of C< zip src1, src2 >.  unzip returns 2 generators,
 the first returning src1, the second, src2. if C< LIST > is a single element,
@@ -5107,7 +5141,7 @@ and is a generator, that generator will be unzipped.
     *unzip = &unzipn(2);
 
 
-=item C< unzipn NUMBER LIST >
+=item unzipn C< NUMBER LIST >
 
 C<unzipn> is the n-dimentional precursor of C< unzip >.  assuming a zipped list
 produced by C< zip > with C< n > elements, C< unzip n list> returns C< n > lists
@@ -5170,7 +5204,7 @@ passed 1 argument, C< unzipn > will return a curried version of itself:
     }
 
 
-=item C< zipgenmax LIST >
+=item zipgenmax C< LIST >
 
 C< zipgenmax > is a lazy version of C< zipmax >. it takes any combination of
 generators and array refs and returns a generator.
@@ -5198,7 +5232,7 @@ generators and array refs and returns a generator.
     }
 
 
-=item C<zipwith CODE LIST>
+=item zipwith C< {CODE} LIST>
 
 C<zipwith> takes a code block and a list.  the C<LIST> is zipped together and
 each sub-list is passed to C<CODE> when requested.  C<zipwith> produces a
@@ -5253,7 +5287,7 @@ generator with the same length as its shortest source list.
     }
 
 
-=item C<<< zipwithab {$a * $b} $gen1, $gen2 >>>
+=item zipwithab C<<< {AB_CODE} $gen1, $gen2 >>>
 
 The zipwithab function takes a function which uses C< $a > and C< $b >, as well
 as two lists and returns a list analogous to zipwith.
@@ -5293,7 +5327,7 @@ as two lists and returns a list analogous to zipwith.
     }
 
 
-=item C< zipwithmax CODE LIST >
+=item zipwithmax C< {CODE} LIST >
 
 C< zipwithmax > is a version of C< zipwith > that has the ending conditions of
 C< zipgenmax >.
@@ -5323,11 +5357,13 @@ C< zipgenmax >.
     }
 
 
-=item C< transpose MULTI_DIMENTIONAL_ARRAY >
+=item transpose C< MULTI_DIMENSIONAL_ARRAY >
 
-=item C< transpose LIST_of_ARRAYREF >
+=item transpose C< LIST >
 
-C< transpose > computes the 90 degree rotation of its arguments
+C< transpose > computes the 90 degree rotation of its arguments, which must be
+a single multidimensional array or generator, or a list of 1+ dimensional
+structures.
 
     say transpose([[1, 2, 3]])->perl; # [[1], [2], [3]]
 
@@ -5361,10 +5397,10 @@ C< transpose > computes the 90 degree rotation of its arguments
     }
 
 
-=item C< cartesian CODE LIST_of_ARRAYREF >
+=item cartesian C< {CODE} LIST >
 
-C< cartesian > computes the cartesian product of any number of array refs, each
-which can be any size. returns a generator
+C< cartesian > computes the cartesian product of any number of array refs or
+generators, each which can be any size. returns a generator
 
     my $product = cartesian {$_[0] . $_[1]} [qw/a b/], [1, 2];
 
@@ -5394,7 +5430,7 @@ which can be any size. returns a generator
 
 =over 4
 
-=item C< mapkey CODE KEY LIST >
+=item mapkey C< {CODE} KEY LIST >
 
 this function is syntactic sugar for the following idiom
 
@@ -5430,7 +5466,7 @@ this function is syntactic sugar for the following idiom
     }
 
 
-=item C< mapab CODE PAIRS >
+=item mapab C< {CODE} PAIRS >
 
 this function works like the builtin C< map > but consumes a list in pairs,
 rather than one element at a time. inside the C< CODE > block, the variables
@@ -5464,7 +5500,7 @@ iteration, C< $b > will be C< undef >
     }
 
 
-=item C< slide {CODE} WINDOW LIST >
+=item slide C< {CODE} WINDOW LIST >
 
 slides a C< WINDOW > sized slice over C< LIST >, calling C< CODE > for each
 slice and collecting the result
@@ -5491,7 +5527,7 @@ as the window reaches the end, the passed in slice will shrink
     }
 
 
-=item C< remove {CODE} ARRAY|HASH >
+=item remove C< {CODE} ARRAY|HASH >
 
 C< remove > removes and returns elements from its source when C< CODE >
 returns true. in the code block, if the source is an array, C< $_ > is aliased
@@ -5539,9 +5575,9 @@ build a return list in void context for efficiency.
     }
 
 
-=item C< d [SCALAR]>
+=item d C< [SCALAR] >
 
-=item C< deref [SCALAR] >
+=item deref C< [SCALAR] >
 
 dereference a C< SCALAR >, C< ARRAY >, or C< HASH > reference. any other value
 is returned unchanged
@@ -5563,7 +5599,7 @@ is returned unchanged
     BEGIN {*deref = \&d}
 
 
-=item C< curse HASHREF PACKAGE >
+=item curse C< HASHREF PACKAGE >
 
 many of the functions in this package utilize closure objects to avoid the speed
 penalty of dereferencing fields in their object during each access. C< curse >

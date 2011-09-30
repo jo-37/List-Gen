@@ -36,7 +36,7 @@ namespace and exportable function list
 
 =over 8
 
-=item C< lazypipe LIST >
+=item lazypipe C< LIST >
 
 C< lazypipe > provides a lazy list implementation that will expand generators.
 
@@ -47,30 +47,30 @@ any items until it has to.
 
 C< lazypipe > provides the behavior of the C< lazy > generator.
 
-=item C< lazyflatten LIST >
+=item lazyflatten C< LIST >
 
 C< lazyflatten > is just like C< lazypipe > except it will also expand array
 references and subroutines.
 
 C< lazyflatten > provides the behavior of the C< lazyx > generator.
 
-=item C< lazy LIST >
+=item lazy C< LIST >
 
-=item C< L LIST >
+=item L C< LIST >
 
 C< lazy > is a C< lazypipe > wrapped inside of an iterative generator.
 if C< LIST > is one item, and is already a generator, that generator is
 returned unchanged.
 
-=item C< lazyx LIST >
+=item lazyx C< LIST >
 
-=item C< Lx LIST >
+=item Lx C< LIST >
 
 C< lazyx > is a C< lazyflatten > wrapped inside of an iterative generator.
 if C< LIST > is one item, and is already a generator, that generator is
 returned unchanged.
 
-=item C< fn CODE [ARITY] [RETURNS] >
+=item fn C< CODE [ARITY] [RETURNS] >
 
 C< fn > converts a subroutine into a subroutine with partial application and
 lazy evaluation.
@@ -111,7 +111,7 @@ like the haskell type signature, should you so desire.
 
 most of the functions in L<List::Gen::Haskell> are implemented with C< fn >
 
-=item C< now LIST >
+=item now C< LIST >
 
 sometimes the return values of C< fn {...} > are too lazy.  C< now > will force
 the values in C< LIST > to evaluate, and will return the new list.
