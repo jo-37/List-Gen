@@ -248,21 +248,17 @@ being calculated more than once.
 
 =head3 more ways to write the fibonacci sequence
 
-=over 4
+    my $fib = <0, 1, *+*...>; >>
 
-=item C<< my $fib = <0, 1, *+*...>; >>
+    my $fib = <0, 1, {$^a + $^b}...>; >>
 
-=item C<< my $fib = <0, 1, {$^a + $^b}...>; >>
+    my $fib = ([0, 1] + iterate {sum self($_, $_ + 1)})->rec; >>
 
-=item C<< my $fib = ([0, 1] + iterate {sum self($_, $_ + 1)})->rec; >>
+    my $fib = ([0, 1] + iterate {sum fib($_, $_ + 1)})->rec('fib'); >>
 
-=item C<< my $fib = ([0, 1] + iterate {sum fib($_, $_ + 1)})->rec('fib'); >>
+    my $fib = (iterate {$_ < 2 ? $_ : sum self($_ - 1, $_ - 2)})->rec; >>
 
-=item C<< my $fib = (iterate {$_ < 2 ? $_ : sum self($_ - 1, $_ - 2)})->rec; >>
-
-=item C<< my $fib; $fib = cache gen {$_ < 2 ? $_ : sum $fib->($_ - 1, $_ - 2)}; >>
-
-=back
+    my $fib; $fib = cache gen {$_ < 2 ? $_ : sum $fib->($_ - 1, $_ - 2)}; >>
 
 =head2 stream generators
 
@@ -302,6 +298,84 @@ which is implemented as a precomputed sieve of eratosthenes in a string buffer.
 initially it is ready to test the primality of numbers below 1000.  if a higher
 number is checked, the sieve will grow to 10 times larger than that value.
 beyond 1e7 primes are checked with simple trial division.
+
+=head2 printing generators
+
+there are a variety of methods available for printing out the contents of a
+generator:
+
+    my $gen = <1..5>;
+
+    say $gen->str;  # 1 2 3 4 5
+    $gen->say;      # 1 2 3 4 5
+    $gen->print;    # same as: print $gen;
+
+    say $gen->perl; # [1, 2, 3, 4, 5]
+    $gen->dump;     # [1, 2, 3, 4, 5]
+
+if your generator is longer than you would like to print, such as an infinite
+generator, passing a number to any of the methods above will limit the number
+of elements printed.
+
+    <1..>->say(5); # 1 2 3 4 5
+
+which is the same as
+
+    <1..>->take(5)->say;  # 1 2 3 4 5
+
+if passed an additional argument, that string will be included in the output
+whenever the printing method needs to truncate a generator.
+
+    say <1..>->perl(5, '...');  # [1, 2, 3, 4, 5, ...]
+
+these methods are recursive and will expand elements that are generators or
+array references.
+
+    list(<1..>, <a..>, <A..>)->dump(3, '...');
+
+    # [[1, 2, 3, ...], ['a', 'b', 'c', ...], ['A', 'B', 'C', ...]]
+
+    <1..>->tuples(<a..>)->dump(3); # [[1, 'a'], [2, 'b'], [3, 'c']]
+
+a target file handle can be passed as the first argument:
+
+    <1..>->dump(*STDERR, 5);
+
+the C<say>, C<print>, and C<dump> methods all return the generator they were
+called on for easy chaining.
+
+    <1..>->say(5)->map('**2')->say(5);
+    # 1 2 3 4 5
+    # 1 4 9 16 25
+
+=head2 debugging generators
+
+in addition to the methods to print generators, there are several methods
+dedicated to debugging:
+
+    <0..>->debug;
+    # debug:   List::Gen::erator::_20=ARRAY(0x2d07bfc)
+    # type:    List::Gen::Range
+    # source:  none
+    # mutable: no
+    # stream:  no
+    # range:   [0 .. inf]
+    # index:   0
+    # perl:    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, ...]
+    #  at file.pl line 12
+
+    my $gen = <0..>->watch('range')
+                   ->grep('even')->watch('grep')
+                   ->map('**2')->watch('map')
+                   ->map('"[$_]"');
+
+    local $\ = ', '; # watch ends lines with $\ if defined or with $/
+
+    say $gen->(0); # range: 0, range: 1, range: 2, grep: 0, map: 0, [0]
+    say $gen->(1); # range: 3, range: 4, grep: 2, map: 4, [4]
+    say $gen->(2); # range: 5, range: 6, grep: 4, map: 16, [16]
+
+C<watch> can also be passed a file handle to print to.
 
 =head1 AUTHOR
 

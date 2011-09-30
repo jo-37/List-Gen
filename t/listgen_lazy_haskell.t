@@ -3,7 +3,7 @@ use strict;
 use warnings;
 use Test::More tests => 254;
 use lib qw(../lib lib t/lib);
-use List::Gen::Haskell 0;
+use List::Gen::Haskell '*';
 use List::Gen::Testing;
 
 BEGIN {*empty = *List::Gen::empty}

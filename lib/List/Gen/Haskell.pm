@@ -2,7 +2,7 @@ package List::Gen::Haskell;
     use strict;
     use warnings;
     use lib '../../';
-    use List::Gen::Lazy 0;
+    use List::Gen::Lazy '*';
     use Scalar::Util 'weaken';
     sub DEBUG () {0}
     our @EXPORT = qw (lazy L lazyx Lx fn now seq map_ unzip unzipn x_xs);
@@ -12,8 +12,9 @@ package List::Gen::Haskell;
     };
     our %EXPORT_TAGS = (base => \@EXPORT, all => \@EXPORT_OK);
     BEGIN {
+        no strict 'refs';
         *import  = *List::Gen::import;
-        *VERSION = *List::Gen::VERSION;
+        *{uc $_} = *{'List::Gen::'.uc} for 'version'
     }
     our ($a, $b);
     no if ($] > 5.012), warnings => 'illegalproto';

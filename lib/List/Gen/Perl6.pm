@@ -66,7 +66,7 @@ package List::Gen::Perl6;
         return $str;
     }
 
-=head1 List::Gen::Perl6
+=head1 NAME
 
 List::Gen::Perl6 - perl6 meta operators in perl5
 

@@ -5,8 +5,9 @@ package List::Gen::Lazy::Builtins;
     use List::Gen::Lazy 'fn';
 
     BEGIN {
-        *import = *List::Gen::import;
-        *VERSION = *List::Gen::VERSION;
+        no strict 'refs';
+        *import  = *List::Gen::import;
+        *{uc $_} = *{'List::Gen::'.uc} for 'version'
     }
 
     our (@EXPORT_OK, @EXPORT, %EXPORT_TAGS) = 'wrap';

@@ -3,7 +3,7 @@ use strict;
 use warnings;
 $|=1;
 use Scalar::Util 'weaken';
-use Test::More tests => 995;
+use Test::More tests => 1065;
 my $srand;
 BEGIN {
     my $max = 2**16;
@@ -2779,11 +2779,19 @@ T {
     }
 
     t 'sequence stress test'; {
-        my $data = gen {repeat($_)};
-        for my $elems (1 .. 5) {
+        for my $elems (0 .. 5) {
             for my $joins (1 .. 10) {
-                is +(gen {repeat($_)->take($elems)} $joins)->reduce('+')->str,
+                is +(gen {repeat $_, $elems} $joins)->reduce('+')->str,
                     join ' ' => map {($_) x $elems} 0 .. $joins - 1;
+            }
+        }
+    }
+
+    t 'zip stress test'; {
+        for my $elems (0 .. 5) {
+            for my $joins (1 .. 10) {
+                is +(gen {repeat $_, $elems} $joins)->reduce('|')->str,
+                    zip(map {[($_) x $elems]} 0 .. $joins - 1)->str
             }
         }
     }

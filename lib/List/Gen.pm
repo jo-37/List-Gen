@@ -83,10 +83,9 @@ package List::Gen;
     our $DWIM_CODE_STRINGS = 0;
     our $SAY_EVAL          = 0;
 
-    our $sv2cv;
     my $MAX_IDX = eval {require POSIX; POSIX::DBL_MAX()} || 2**53 - 1;
 
-    our $VERSION = '0.91';
+    our $VERSION = '0.92';
 
 =head1 NAME
 
@@ -94,7 +93,7 @@ List::Gen - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.91
+version 0.92
 
 =head1 SYNOPSIS
 
@@ -241,6 +240,8 @@ functions, and all functions from List::Util are available.
         }
         bless $$obj{-bless} || $obj => $pkg
     }}
+
+    our $sv2cv;
 
     my $cv_caller = sub {
         reftype($_[0]) eq 'CODE' or croak "not code: $_[0]";
@@ -1907,21 +1908,27 @@ several predicates are available to use with the filtering methods:
         local *flat = *perl;
         &say
     }
+    {my $bool = sub {$_[0] ? 'yes' : 'no'};
     sub debug {
-        my $gen = shift;
-        my $perl = $gen->perl(@_, 10, '...');
+        my $gen    = shift;
+        my $stream = tied(@$gen)->can('index');
+        my $perl   = ($stream ? $gen->idx : $gen)->perl(@_, 10, '...');
+        my $max    = $gen->size - 1;
+        $max = 'inf' if $max >= 9**9**9;
+
         Carp::carp CORE::join '' => map {
-            sprintf "%-10s %s\n", "$$_[0]:",
+            sprintf "%-8s %s\n", "$$_[0]:",
                 $#$_ > 0 ? CORE::join ', ' => @$_[1 .. $#$_] : 'none'
         }   [debug   => $gen],
             [type    => $gen->type],
             [source  => map {ref =~ /(.+)::/} tied(@$gen)->sources],
-            [range   => '[0 .. '.($gen->size-1).']'],
-            [mutable => $gen->is_mutable ? 'yes' : 'no'],
-            [stream  => tied(@$gen)->can('index') ? 'yes' : 'no'],
+            [mutable => $bool->($gen->is_mutable)],
+            [stream  => $bool->($stream)],
+            [range   => "[0 .. $max]"],
+            [index   => $gen->index],
             [perl    => $perl];
         $gen
-    }
+    }}
 
     sub watch {
         my ($gen, $fh) = shift;
@@ -1930,7 +1937,7 @@ several predicates are available to use with the filtering methods:
         } @_;
         $msg .= ': ' if $msg =~ /^\w+$/;
         &List::Gen::gen(sub {
-            local $/ = $\;
+            defined $\ or local $\ = $/;
             $fh ? print $fh $msg, $_
                 : print     $msg, $_;
             $_
