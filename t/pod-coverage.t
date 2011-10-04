@@ -24,4 +24,6 @@ pod_coverage_ok('List::Gen', {also_private => [qr/^(?: [A-Z_]+|
     |iterateMS|iterateS|itrMS|itrS|iterateM|Grep|take_while|drop_while|take_until|drop_until
 	|scan_stream|scanS|while_|until_|filter_|genzip
 )$/x]});
-pod_coverage_ok('List::Gen::Haskell', {trustme => [qr/^[A-Z]|hs_replicate|map_/]});
+pod_coverage_ok('List::Gen::Haskell', {trustme => [qr/^[A-Z]|
+    hs_replicate|map_|map|last|length|or|reverse
+/x]});

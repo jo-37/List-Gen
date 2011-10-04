@@ -3,7 +3,7 @@ use strict;
 use warnings;
 $|=1;
 use Scalar::Util 'weaken';
-use Test::More tests => 1065;
+use Test::More tests => 1069;
 my $srand;
 BEGIN {
     my $max = 2**16;
@@ -676,6 +676,15 @@ t 'glob: <{a,b}{1,2,3}>',
     t 'glob until',
         is => <1.. until \> 10>->str, <1..>->until('>10')->str,
         is => <[...] "[_]" for 1 .. 100 if even until \> 75>->str, <1..100>->grep('even')->until('>75')->map('"[$_]"')->scan('.')->str;
+
+    my $itrf  = <1,**2...10>;
+    my $itrn  = <1,**_...10>;
+    my $check = bless [] => 'List::Gen::From_Check';
+    t 'glob iterate from',
+        ok =>  $itrf->from($check),
+        is =>  $itrf->str, iterate{$_*2}->from(1)->str(10),
+        ok => !$itrn->from($check),
+        is =>  $itrn->str, <[..*]1, 1..9>->str;
 
     my $slice = $ints->(<100 .. *>);
 

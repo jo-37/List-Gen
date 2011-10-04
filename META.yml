@@ -6,6 +6,7 @@ build_requires:
   Test::More: 0
 configure_requires:
   Module::Build: 0.36
+dynamic_config: 0
 generated_by: 'Module::Build version 0.3607'
 license: perl
 meta-spec:
@@ -15,7 +16,7 @@ name: List-Gen
 provides:
   List::Gen:
     file: lib/List/Gen.pm
-    version: 0.93
+    version: 0.94
   List::Gen::Cookbook:
     file: lib/List/Gen/Cookbook.pm
   List::Gen::Haskell:
@@ -43,4 +44,4 @@ requires:
   warnings: 0
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.93
+version: 0.94
