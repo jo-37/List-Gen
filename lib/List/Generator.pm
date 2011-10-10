@@ -7,7 +7,7 @@ List::Generator - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.95
+version 0.96
 
 =head1 SYNOPSIS
 
@@ -39,6 +39,8 @@ each line below prints C< '1 9 25 49 81' >:
 =over 4
 
 =item * see L<List::Gen> for core documentation.
+
+=item * see L<List::Gen::Benchmark> for performance tips.
 
 =item * see L<List::Gen::Cookbook> for usage tips.
 

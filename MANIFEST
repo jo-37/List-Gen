@@ -1,6 +1,7 @@
 Build.PL
 Changes
 lib/List/Gen.pm
+lib/List/Gen/Benchmark.pm
 lib/List/Gen/Cookbook.pm
 lib/List/Gen/Haskell.pm
 lib/List/Gen/Lazy.pm

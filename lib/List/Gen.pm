@@ -86,7 +86,7 @@ package List::Gen;
 
     my $MAX_IDX = eval {require POSIX; POSIX::DBL_MAX()} || 2**53 - 1;
 
-    our $VERSION = '0.95';
+    our $VERSION = '0.96';
 
 =head1 NAME
 
@@ -94,7 +94,7 @@ List::Gen - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.95
+version 0.96
 
 =head1 SYNOPSIS
 
@@ -2893,7 +2893,6 @@ which is the same as the following if C< glob > is imported:
     sub canglob (;$) {(@_ ? $_[0] : $_) =~ $canglob}
 
     sub dwim {
-        no warnings 'numeric';
         @_ or @_ = (0 => 9**9**9);
         $#_ and &range
             or ref $_[0] and do {
@@ -5715,6 +5714,8 @@ short getter/setter methods, and is the method used internally in this module.
 =over 4
 
 =item * see L<List::Gen::Cookbook> for usage tips.
+
+=item * see L<List::Gen::Benchmark> for performance tips.
 
 =item * see L<List::Gen::Haskell> for an experimental implementation of
 haskell's lazy list behavior.

@@ -28,3 +28,6 @@ Revision history for List-Gen
 
 0.95    2011.10.09
         various bug-fixes for versions of perl.  stream pragmatic blocks.
+
+0.96    2011.10.09
+        added List::Gen::Benchmark
