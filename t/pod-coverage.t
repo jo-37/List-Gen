@@ -22,7 +22,7 @@ pod_coverage_ok('List::Gen', {also_private => [qr/^(?: [A-Z_]+|
     |DEBUG|VERSION|canglob|catch_done|clone|empty|\\|is_lvalue|alpha2num|num2alpha
     |arange|gather_stream|gather_multi_stream|filterS|gatherM|gatherMS|gatherS|grepS
     |iterateMS|iterateS|itrMS|itrS|iterateM|Grep|take_while|drop_while|take_until|drop_until
-	|scan_stream|scanS|while_|until_|filter_|genzip
+	|scan_stream|scanS|while_|until_|filter_|genzip|looks_like_number
 )$/x]});
 pod_coverage_ok('List::Gen::Haskell', {trustme => [qr/^[A-Z]|
     hs_replicate|map_|map|last|length|or|reverse

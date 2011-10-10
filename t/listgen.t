@@ -3,7 +3,7 @@ use strict;
 use warnings;
 $|=1;
 use Scalar::Util 'weaken';
-use Test::More tests => 1069;
+use Test::More tests => 1123;
 my $srand;
 BEGIN {
     my $max = 2**16;
@@ -2803,6 +2803,58 @@ T {
                     zip(map {[($_) x $elems]} 0 .. $joins - 1)->str
             }
         }
+    }
+
+    t 'stream {CODE}'; {
+        for my $test ('_Stream', '') {
+            local $List::Gen::STREAM = 1 if $test;
+
+            is filter{}->type,          'List::Gen::Filter'.$test;
+            is &filter(sub{})->type,    'List::Gen::Filter'.$test;
+            is Grep{}->type,            'List::Gen::Filter'.$test;
+            is <1..>->grep('>1')->type, 'List::Gen::Filter'.$test;
+            is <1..>->filter(*!)->type, 'List::Gen::Filter'.$test;
+            is iterate{}->type,         'List::Gen::Iterate'.$test;
+            is iterate_multi{}->type,   'List::Gen::Iterate_Multi'.$test;
+            is iterateM{}->type,        'List::Gen::Iterate_Multi'.$test;
+            is gather{}->type,          'List::Gen::Iterate'.$test;
+            is gather_multi{}->type,    'List::Gen::Iterate_Multi'.$test;
+            is gatherM{}->type,         'List::Gen::Iterate_Multi'.$test;
+            is scan{}->type,            'List::Gen::Iterate'.$test;
+            is <1..>->scan('+')->type,  'List::Gen::Iterate'.$test;
+            is <[..+] 1..>->type,       'List::Gen::Iterate'.$test;
+            is <1, 1+*...>->type,       'List::Gen::Iterate'.$test;
+            is <1, 2..10 if /1/>->type, 'List::Gen::Filter'.$test;
+
+            is iterate_stream{}->type,        'List::Gen::Iterate_Stream';
+            is iterate_multi_stream{}->type,  'List::Gen::Iterate_Multi_Stream';
+            is gather_stream{}->type,         'List::Gen::Iterate_Stream';
+            is gather_multi_stream{}->type,   'List::Gen::Iterate_Multi_Stream';
+            is filter_stream{}->type,         'List::Gen::Filter_Stream';
+            is scan_stream{}->type,           'List::Gen::Iterate_Stream';
+        }
+        stream {
+            my $itr = iterate{$_*2}->from(1);
+            is $itr->str(5),      '1 2 4 8 16';
+            is $itr->idx->str(5), '32 64 128 256 512';
+        };
+
+        my $itr = stream{iterate{$_*2}}->from(1);
+        is $itr->str(5),      '1 2 4 8 16';
+        is $itr->idx->str(5), '32 64 128 256 512';
+
+        is stream{<1.. if even>->type}, 'List::Gen::Filter_Stream';
+
+        my $pow = stream {<1, 2**...>};
+        is $pow->type, 'List::Gen::Iterate_Stream';
+
+        is $pow->str(5),      '1 2 4 8 16';
+        is $pow->idx->str(5), '32 64 128 256 512';
+    }
+
+    t 'gen range oob'; {
+        ok not eval {my $x = <1..10>->map('**3')->[10]; 1};
+        like $@, qr/range index.*out of bounds/;
     }
 
 };

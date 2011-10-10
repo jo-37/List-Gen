@@ -3,7 +3,7 @@ package List::Gen;
     use strict;
     use Carp;
     use Symbol       qw/delete_package/;
-    use Scalar::Util qw/reftype weaken looks_like_number openhandle/;
+    use Scalar::Util qw/reftype weaken openhandle blessed/;
     our @list_util;
     use List::Util
         @list_util   = qw/first max maxstr min minstr reduce shuffle sum/;
@@ -23,7 +23,7 @@ package List::Gen;
 
         :modify     gen cache expand contract collect slice flip overlay
                     test recursive sequence scan scan_stream == scanS
-                    cartesian transpose
+                    cartesian transpose stream
 
         :zip        zip zipgen tuples zipwith zipwithab unzip unzipn
                     zipmax zipgenmax zipwithmax
@@ -82,10 +82,11 @@ package List::Gen;
     our $LOOKAHEAD         = 1;
     our $DWIM_CODE_STRINGS = 0;
     our $SAY_EVAL          = 0;
+    our $STREAM            = 0;
 
     my $MAX_IDX = eval {require POSIX; POSIX::DBL_MAX()} || 2**53 - 1;
 
-    our $VERSION = '0.94';
+    our $VERSION = '0.95';
 
 =head1 NAME
 
@@ -93,7 +94,7 @@ List::Gen - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.94
+version 0.95
 
 =head1 SYNOPSIS
 
@@ -149,7 +150,7 @@ functions, and all functions from List::Util are available.
 
         :modify     gen cache expand contract collect slice flip overlay
                     test recursive sequence scan scan_stream scanS
-                    cartesian transpose
+                    cartesian transpose stream
 
         :zip        zip zipgen tuples zipwith zipwithab unzip unzipn
                     zipmax zipgenmax zipwithmax
@@ -241,6 +242,18 @@ functions, and all functions from List::Util are available.
         bless $$obj{-bless} || $obj => $pkg
     }}
 
+    sub looks_like_number ($) {
+        Scalar::Util::looks_like_number($_[0])
+            or do {no warnings 'numeric'; $_[0] >= 9**9**9}
+            or do {
+                ref $_[0]
+                and blessed $_[0]
+                and $_[0]->isa('Math::BigInt')
+                ||  $_[0]->isa('Math::BigRat')
+                ||  $_[0]->isa('Math::BigFloat')
+            }
+    }
+
     our $sv2cv;
 
     my $cv_caller = sub {
@@ -278,22 +291,20 @@ functions, and all functions from List::Util are available.
 
     my $is_array_or_gen = sub {ref $_[0] eq 'ARRAY' or &isagen};
 
-    my $say_eval = sub {
-        Carp::cluck 'eval'.(@_ > 1 ? " ($_[1])" : '').": '$_[0]'"
-    };
+    my $say_eval = sub {Carp::cluck "eval ($_[0]): '$_[1]'"};
+
     my $eval = sub {
-        my $pkg  = $external_package->(2);
-        my ($msg, $code, $eval) = (@_, sub {eval});
+        my $pkg = $external_package->(2);
+        my ($msg, $code) = @_;
+        &$say_eval if $SAY_EVAL or DEBUG;
+
+        my $say = $code =~ /(?:\b|^)say(?:\b|$)/
+                ? "use feature 'say';"
+                : '';
+        $code = "[do {$code}]" if wantarray;
         local @$;
-        $code->$say_eval($msg) if $SAY_EVAL or DEBUG;
-
-        my $say = $code =~ /(?:\b|^)say(?:\b|$)/ ? "use feature 'say';" : '';
-
-        $code = "[do{$code}]" if wantarray;
-        my $ret;
-        for ("package $pkg; $say".'my $__eval = do {'.$code.'}; \$__eval') {
-            $ret = $eval->() or Carp::croak "$msg code error: $@\n$say $code\n"
-        }
+        my $ret = eval "package $pkg; $say \\do {$code}"
+            or croak "$msg code error: $@\n$say $code\n";
         wantarray ? @$$ret : $$ret
     };
 
@@ -1143,7 +1154,7 @@ also have generator methods.  it is up to you to ensure that all operations and
 methods follow the monotonically increasing index rule.  you can determine the
 current position of the stream iterator with the C<< $gen->index >> method.
 
-    my $nums = iterate_stream{ 2*$_ }->from(1);
+    my $nums = iterate_stream{2*$_}->from(1);
 
     say $nums->();    # 1
     say $nums->();    # 2
@@ -1285,9 +1296,9 @@ several predicates are available to use with the filtering methods:
 
     $sv2cv = sub {
         defined $_[0] or croak 'an undefined value can not be coerced into code';
-        return $_[0] if ref $_[0] eq 'CODE';
-        $_[0] = ($ops{$_[0]} or do {
-            local $_ = $_[0];
+        local $_ = $_[0];
+        return $_ if ref and reftype($_) eq 'CODE';
+        $_[0] = ($ops{$_} or do {
             $ops{$_} = do {
                 if (ref eq ref qr//) {
                     my $re = $_;
@@ -1336,7 +1347,7 @@ several predicates are available to use with the filtering methods:
                         s{\$a(?:\b|$)} '${\$_[0]}'gx;
                         s{\$b(?:\b|$)} '${\$_[1]}'gx;
 
-                    '$a/$b'->$eval('sub ($$) '."{$_}")
+                    '$a $b'->$eval('sub ($$) '."{$_}")
                 }
                 elsif (/^[a-zA-Z_][\w\s]*$/) {
                     'bareword'->$eval("sub (\$) {$_(\$_)}")
@@ -2816,7 +2827,7 @@ amount of memory.
         my ($low, $high, $step) = (@_ == 1 ? 'a' : (), @_, 1);
         my $uc = $low =~ /^[A-Z]+$/;
         for ($low, $high) {
-            $_ = alpha2num lc if /^[a-z]+$/i and /^inf$/i ? $_ < 9**9**9 : 1
+            $_ = alpha2num lc if /^[a-z]+$/i and not looks_like_number $_
         }
         if ($step =~ /^[a-z]+$/i) {
             $step = 1 + alpha2num lc $step;
@@ -2882,6 +2893,7 @@ which is the same as the following if C< glob > is imported:
     sub canglob (;$) {(@_ ? $_[0] : $_) =~ $canglob}
 
     sub dwim {
+        no warnings 'numeric';
         @_ or @_ = (0 => 9**9**9);
         $#_ and &range
             or ref $_[0] and do {
@@ -2889,10 +2901,11 @@ which is the same as the following if C< glob > is imported:
                 isagen $_[0]
                 or ref $_[0] eq 'ARRAY' and &makegen
             }
-            or $_[0] && $_[0] =~ $canglob && eval {
-                isagen &glob($_[0] =~ /\.{2,3}/ ? $_[0] : "$_[0]...")
-            }
-            or range int $_[0]
+            or $_[0] and $_[0] =~ $canglob
+                     and isagen &glob($_[0] =~ /\.{2,3}/ ? $_[0] : "$_[0]...")
+            or looks_like_number $_[0]
+                and range int $_[0]
+            or croak "invalid argument for generator: '$_[0]'"
     }
     generator Gen => sub {
         my ($class, $code, $source) = @_;
@@ -2902,9 +2915,9 @@ which is the same as the following if C< glob > is imported:
                 if ($source->can('range')) {
                     my ($low, $step, $size) = $source->range;
                     sub {
-                        local *_ = \($_[1] < $size
-                                           ? $low + $step * $_[1]
-                                           : &$fetch);
+                        local *_ = $_[1] < $size
+                                 ? \($low + $step * $_[1])
+                                 : &$fetch;
                         $code->()
                     }
                 }
@@ -3119,6 +3132,7 @@ which all return C< [1, 2, 4, 8, 16, 32, 64, 128, 256, 512] >
 =cut
 
     sub iterate (&;$) {
+        goto &iterate_stream if $STREAM;
         my ($code, $size) = (@_, 9**9**9);
         if (isagen($size) and $size->is_mutable) {
             goto &iterate_multi
@@ -3240,6 +3254,7 @@ C< iterate > for the rules and effects of this.
 =cut
 
     sub iterate_multi (&;$) {
+        goto &iterate_multi_stream if $STREAM;
         tiegen Iterate_Multi => @_, 9**9**9
     } BEGIN {*iterateM = *iterate_multi}
     mutable_gen Iterate_Multi => sub {
@@ -3516,17 +3531,43 @@ can take a list.  C< gather_multi_stream > is also available.
     }
 
 
+=item stream C< {CODE} >
+
+in the C< CODE > block, calls to functions or methods with stream versions will
+be replaced by those versions.  this applies also to functions that are called
+internally by C< List::Gen > (such as in the glob syntax).  C< stream > returns
+what C< CODE > returns.
+
+    say iterate{}->type;             # List::Gen::Iterate
+    say iterate_stream{}->type;      # List::Gen::Iterate_Stream
+    stream {
+        say iterate{}->type;         # List::Gen::Iterate_Stream
+    };
+    say stream{iterate{}}->type;     # List::Gen::Iterate_Stream
+    say stream{<1.. if even>}->type; # List::Gen::Filter_Stream
+
+placing code inside a C< stream > block is exactly the same as placing
+C< local $List::Gen::STREAM = 1; > at the top of a block.
+
+=cut
+
+    sub stream (&) {
+        local $STREAM = 1;
+        $_[0]->()
+    }
+
+
 =item glob C< STRING >
 
-=item C<< <list comprehension> >>
+=item <list comprehension>
 
 by default, this module overrides perl's default C< glob > function.  this is
-because the C< glob > function provides the behavior of the C<< <glob string> >>
-operator, which is a nice place for inserting list comprehensions into perl's
-syntax.  the override causes C< glob() > and the C<< <*.glob> >> operator to
-have a few special cases overridden, but any case that is not overridden will
-be passed to perl's internal C< glob > function (C<< my @files = <*.txt>; >>
-works as normal).
+because the C< glob > function provides the behavior of the angle bracket
+delimited C<< <*.ext> >> operator, which is a nice place for inserting list
+comprehensions into perl's syntax.  the override causes C< glob() > and the
+C<< <*.ext> >> operator to have a few special cases overridden, but any case
+that is not overridden will be passed to perl's internal C< glob > function
+(C<< my @files = <*.txt>; >> works as normal).
 
 there are several types of overridden operations:
 
@@ -3603,7 +3644,7 @@ examples:
 
 reduction strings match:
 
-    [operator | function_name] (range | iterate | list comp)
+    \[operator | function_name\] (range | iterate | list comp)
 
 examples:
 
@@ -3694,9 +3735,10 @@ string:
      my $glob = sub {glob $_[0]};
      use subs 'glob';
      sub glob {
-        local *_ = \"$_[0]";
+        local *_ = @_ ? \"$_[0]" : \"$_";
         s/^\s+|\s+$//g;
         my $reduce;
+        my $pkg = $external_package->(1);
         if (s{^
           \[
             ( (?: \\ | \.\.? | , )  (?! \] ) )?
@@ -3704,20 +3746,19 @@ string:
             ( (?: \.\.? | , ) )?
           \]
         }{}x) {
-            my ($rev, $op, $word) = ($2, $3, $4);
-            my $scan = $1 || $5;
-
+            my ($rev, $op, $word, $scan) = ($2, $3, $4, $1 || $5);
             if ($op) {
-                $op = 'R'.$op if $rev;
-                $reduce = $scan ? sub {$_[0]->scan  ($op)}
-                                : sub {$_[0]->reduce($op)}
+                $op = 'R'.$op if $rev
             } else {
-                $reduce = 'reduce'->$eval('sub {'.
-                    ($scan ? 'List::Gen::scan' : 'List::Util::reduce').
-                    ' {'.($op ? do {$rev ? "\$b $op \$a" : "\$a $op \$b"} : $word.'($a, $b)').'} '.
-                    ($scan ? '$_[0]' : '$_[0]->all').'
-                }');
+                if (my $sub = $pkg->can($word)) {
+                    $op = $rev ? sub {$sub->($b, $a)}
+                               : sub {$sub->($a, $b)}
+                } else {
+                    croak "subroutine '&${pkg}::$word' not found"
+                }
             }
+            $reduce = $scan ? sub {$_[0]->scan  ($op)}
+                            : sub {$_[0]->reduce($op)}
         }
         my $pragma = $get_pragma->();
         if (my ($gen, $pre, $low, $high, $step, $iterate, $filter, $while) = /^
@@ -3850,7 +3891,7 @@ string:
         }
         $self = "List::Gen::iterate {$pragma$self} $end";
 
-        $self->$say_eval('iterate') if $SAY_EVAL or DEBUG;
+        'iterate'->$say_eval($self) if $SAY_EVAL or DEBUG;
 
         my $say = $self =~ /(?:\b|^)say(?:\b|$)/
                 ? "use feature 'say';"
@@ -3861,7 +3902,7 @@ string:
 
         return $self->from(@$pre) if $from;
         $self->load(@$pre) if $pre and @$pre;
-        $fetch  = tied(@$self)->can('FETCH');
+        $fetch = tied(@$self)->can('FETCH');
         weaken $fetch;
         $self
     }}
@@ -4348,6 +4389,7 @@ a stream version C< scan_stream > is also available.
 =cut
 
     sub scan (&@) {
+        local *iterate = *iterate_stream if $STREAM;
         my $binop = shift;
         my $gen  = (@_ == 1 && List::Gen::isagen($_[0]) or &makegen(\@_));
         my $last;
@@ -4361,7 +4403,6 @@ a stream version C< scan_stream > is also available.
             } : $_} $gen
         }
     }
-
     sub scan_stream (&@) {
         local *iterate = *iterate_stream;
         &scan
@@ -4525,6 +4566,7 @@ C< $List::Gen::LOOKAHEAD = 0 > or use C< filter_ ... >
 =cut
 
     sub filter (&;$$$) {
+        goto &filter_stream if $STREAM;
         tiegen Filter => shift, tied @{&dwim}
     } BEGIN {*Grep = *filter}
     mutable_gen Filter => sub {
@@ -4575,7 +4617,7 @@ C< $List::Gen::LOOKAHEAD = 0 > or use C< filter_ ... >
 
     sub filter_ (&;$$$) {
         local $LOOKAHEAD;
-        &filter
+        $STREAM ? &filter_stream : &filter
     }
 
 

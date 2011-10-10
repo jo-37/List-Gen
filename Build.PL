@@ -3,28 +3,12 @@ use warnings;
 use Module::Build;
 
 my $builder = Module::Build->new(
-    module_name         => 'List::Gen',
-    license             => 'perl',
-    dist_author         => q{Eric Strom <asg@cpan.org>},
-    dist_version_from   => 'lib/List/Gen.pm',
-    build_requires => {
-        'Test::More' => 0,
-    },
-    requires => {qw{
-        strict       0
-        warnings     0
-        subs         0
-        Carp         0
-        List::Util   0
-        Exporter     0
-        Scalar::Util 0
-        Symbol       0
-        overload     0
-        B            0
-    }},
-    add_to_cleanup      => [ 'List-Gen-*' ],
+    module_name        => 'List::Gen',
+    license            => 'perl',
+    dist_author        => q{Eric Strom <asg@cpan.org>},
+    dist_version_from  => 'lib/List/Gen.pm',
+    add_to_cleanup     => ['List-Gen-*'],
     create_makefile_pl => 'traditional',
-    dynamic_config => 0,
 );
 
 $builder->create_build_script();

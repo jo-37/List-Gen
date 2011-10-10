@@ -17,4 +17,14 @@ Revision history for List-Gen
         better iterative generators, While/Until
 
 0.90    2011.09.28
-        too many to count, do a diff :)
+        various bug-fixes
+        default glob override for list comprehensions: <*2 for 0 .. 10 if even>
+        stream generators that do not maintain caches
+        overloaded 'x', '|', '<<', '>>', '+' operators
+        many new methods
+        an experimental implementation of many haskell prelude functions
+        ...
+        for the rest, do a diff
+
+0.95    2011.10.09
+        various bug-fixes for versions of perl.  stream pragmatic blocks.

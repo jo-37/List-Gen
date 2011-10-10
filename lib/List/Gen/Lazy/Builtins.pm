@@ -78,7 +78,7 @@ package List::Gen::Lazy::Builtins;
         unless (keys %{$cfg{styles}}) {
             $add->("return $name(\@_)")
         }
-        eval "fn @pre @post" or die $@
+        eval "fn @pre @post"
     }
 
     my @builtin = qw(
@@ -107,6 +107,10 @@ package List::Gen::Lazy::Builtins;
     for my $fn (@builtin) {
         no strict 'refs';
         my $code = wrap $fn;
+        unless ($code) {
+            warn "could not wrap '$fn': $@\n";
+            next;
+        }
         *$_ = $code for $fn, "lazy_$fn", ucfirst $fn, "_$fn";
 
         push @EXPORT, ucfirst $fn;

@@ -2,11 +2,8 @@
 abstract: 'provides functions for generating lists'
 author:
   - 'Eric Strom <asg@cpan.org>'
-build_requires:
-  Test::More: 0
 configure_requires:
   Module::Build: 0.36
-dynamic_config: 0
 generated_by: 'Module::Build version 0.3607'
 license: perl
 meta-spec:
@@ -16,7 +13,7 @@ name: List-Gen
 provides:
   List::Gen:
     file: lib/List/Gen.pm
-    version: 0.94
+    version: 0.95
   List::Gen::Cookbook:
     file: lib/List/Gen/Cookbook.pm
   List::Gen::Haskell:
@@ -31,17 +28,6 @@ provides:
     file: lib/List/Gen/Perl6.pm
   List::Generator:
     file: lib/List/Generator.pm
-requires:
-  B: 0
-  Carp: 0
-  Exporter: 0
-  List::Util: 0
-  Scalar::Util: 0
-  Symbol: 0
-  overload: 0
-  strict: 0
-  subs: 0
-  warnings: 0
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.94
+version: 0.95
