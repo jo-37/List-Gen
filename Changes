@@ -31,3 +31,7 @@ Revision history for List-Gen
 
 0.96    2011.10.09
         added List::Gen::Benchmark
+
+0.97    2011.10.15
+        added `strict` pragmatic function.  fixed some minor errors preventing
+        compilation on perl 5.13+. reorganized some of the pod.

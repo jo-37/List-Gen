@@ -65,7 +65,7 @@ package List::Gen::Benchmark;
 
 List::Gen::Benchmark - performance tips for using L<List::Gen>
 
-=head1 SUMMARY
+=head1 SYNOPSIS
 
 this document contains various benchmarks comparing the parallel syntax styles
 that L<List::Gen> provides.

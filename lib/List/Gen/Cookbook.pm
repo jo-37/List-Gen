@@ -260,6 +260,16 @@ being calculated more than once.
 
     my $fib; $fib = cache gen {$_ < 2 ? $_ : sum $fib->($_ - 1, $_ - 2)}; >>
 
+=head3 a few ways to write the factorial sequence
+
+    my $fac = <[*..] 1, 1..>;
+
+    my $fac = <1, 1..>->scan('*');
+
+    my $fac = 1 + repeat(1)->scan('+')->scan('*');
+
+    my $fac = <1, **_...>;
+
 =head2 stream generators
 
 here is an example of a sieve of eratosthenes implemented with generators:

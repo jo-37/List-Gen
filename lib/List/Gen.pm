@@ -23,7 +23,7 @@ package List::Gen;
 
         :modify     gen cache expand contract collect slice flip overlay
                     test recursive sequence scan scan_stream == scanS
-                    cartesian transpose stream
+                    cartesian transpose stream strict
 
         :zip        zip zipgen tuples zipwith zipwithab unzip unzipn
                     zipmax zipgenmax zipwithmax
@@ -83,10 +83,11 @@ package List::Gen;
     our $DWIM_CODE_STRINGS = 0;
     our $SAY_EVAL          = 0;
     our $STREAM            = 0;
+    our $STRICT            = 0;
 
     my $MAX_IDX = eval {require POSIX; POSIX::DBL_MAX()} || 2**53 - 1;
 
-    our $VERSION = '0.96';
+    our $VERSION = '0.97';
 
 =head1 NAME
 
@@ -94,12 +95,12 @@ List::Gen - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.96
+version 0.97
 
 =head1 SYNOPSIS
 
-this module provides higher order functions, generators, iterators, list
-comprehensions, and other utility functions for working with lists. walk lists
+this module provides higher order functions, list comprehensions, generators,
+iterators, and other utility functions for working with lists. walk lists
 with any step size you want, create lazy ranges and arrays with a map like
 syntax that generate values on demand. there are several other hopefully useful
 functions, and all functions from List::Util are available.
@@ -150,7 +151,7 @@ functions, and all functions from List::Util are available.
 
         :modify     gen cache expand contract collect slice flip overlay
                     test recursive sequence scan scan_stream scanS
-                    cartesian transpose stream
+                    cartesian transpose stream strict
 
         :zip        zip zipgen tuples zipwith zipwithab unzip unzipn
                     zipmax zipgenmax zipwithmax
@@ -606,6 +607,8 @@ symbol variables, once imported, C< &\ > is global across all packages.
 
 =head2 generators
 
+=over 4
+
 in this document, a generator is an object similar to an array that generates
 its elements on demand. generators can be used as iterators in perl's list
 control structures such as C< for/foreach > and C< while >.  generators, like
@@ -655,9 +658,11 @@ as are these (each printing C<'25 36 49 64 81 100'>):
     say $gen->(<5..10>)->str;
     say $gen->('5..10')->str;
 
-=over 4
+=back
 
-=item generators as arrays
+=head3 generators as arrays
+
+=over 4
 
 you can access generators as if they were array references. only the requested
 indicies will be generated.
@@ -678,235 +683,11 @@ indicies will be generated.
         ...
     }
 
-=item generators as objects
+=back
 
-all generators have the following methods by default
+=head3 generators in loops
 
-iteration:
-
-    $gen->next       # iterates over generator ~~ $gen->get($gen->index++)
-    $gen->()         # same.  iterators return () when past the end
-
-    $gen->more       # test if $gen->index not past end
-    $gen->reset      # reset iterator to start
-    $gen->reset(4)   # $gen->next returns $$gen[4]
-    $gen->index      # fetches the current position
-    $gen->index = 4  # same as $gen->reset(4)
-    $gen->nxt        # next until defined
-    $gen->iterator   # returns the $gen->next coderef iterator
-
-indexing:
-
-    $gen->get(index)     # returns $$gen[index]
-    $gen->(index)        # same
-
-    $gen->slice(4 .. 12) # returns @$gen[4 .. 12]
-    $gen->(4 .. 12)      # same
-
-    $gen->size           # returns 'scalar @$gen'
-    $gen->all            # same as list context '@$gen' but faster
-    $gen->list           # same as $gen->all
-
-printing:
-
-    $gen->join(' ')      # join ' ', $gen->all
-    $gen->str            # join $", $gen->all (recursive with nested generators)
-    $gen->str(10)        # limits generators to 10 elements
-    $gen->perl           # serializes the generator in array syntax (recursive)
-    $gen->perl(9)        # limits generators to 9 elements
-    $gen->perl(9, '...') # prints ... at the end of each truncated generator
-    $gen->print(...);    # print $gen->str(...)
-    $gen->say(...);      # print $gen->str(...), $/
-    $gen->say(*FH, ...)  # print FH $gen->str(...), $/
-    $gen->dump(...)      # print $gen->perl(...), $/
-    $gen->debug          # carps debugging information
-    $gen->watch(...)     # prints ..., value, $/ each time a value is requested
-
-eager looping:
-
-    $gen->do(sub {...})  # for (@$gen) {...} # but faster
-    $gen->each(sub{...}) # same
-
-slicing:
-
-    $gen->head     # $gen->get(0)
-    $gen->tail     # $gen->slice(<1..>)  # lazy slices
-    $gen->drop(2)  # $gen->slice(<2..>)
-    $gen->take(4)  # $gen->slice(<0..3>)
-    $gen->x_xs     # ($gen->head, $gen->tail)
-
-accessors:
-
-    $gen->range   # range(0, $gen->size - 1)
-    $gen->keys    # same as $gen->range, but a list in list context
-    $gen->values  # same as $gen, but a list in list context
-    $gen->kv      # zip($gen->range, $gen)
-    $gen->pairs   # same as ->kv, but each pair is a tuple (array ref)
-
-randomization:
-
-    $gen->pick     # return a random element from $gen
-    $gen->pick(n)  # return n random elements from $gen
-    $gen->roll     # same as pick
-    $gen->roll(n)  # pick and replace
-    $gen->shuffle  # a lazy shuffled generator
-    $gen->random   # an infinite generator that returns random elements
-
-searching:
-
-    $gen->first(sub {$_ > 5})  # first {$_ > 5} $gen->all # but faster
-    $gen->first('>5')          # same
-    $gen->last(...)            # $gen->reverse->first(...)
-    $gen->first_idx(...)       # same as first, but returns the index
-    $gen->last_idx(...)
-
-sorting:
-
-    $gen->sort                   # sort $gen->all
-    $gen->sort(sub {$a <=> $b})  # sort {$a <=> $b} $gen->all
-    $gen->sort('<=>')            # same
-    $gen->sort('uc', 'cmp')      # does:  map  {$$_[0]}
-                                 #        sort {$$a[1] cmp $$b[1]}
-                                 #        map  {[$_ => uc]} $gen->all
-
-reductions:
-
-    $gen->reduce(sub {$a + $b})  # reduce {$a + $b} $gen->all
-    $gen->reduce('+')            # same
-    $gen->sum         # $gen->reduce('+')
-    $gen->product     # $gen->reduce('*')
-    $gen->scan('+')   # [$$gen[0], sum(@$gen[0..1]), sum(@$gen[0..2]), ...]
-    $gen->min         # min $gen->all
-    $gen->max         # max $gen->all
-
-transforms:
-
-    $gen->cycle       # infinite repetition of a generator
-    $gen->rotate(1)   # [$gen[1], $gen[2] ... $gen[-1], $gen[0]]
-    $gen->rotate(-1)  # [$gen[-1], $gen[0], $gen[1] ... $gen[-2]]
-    $gen->uniq        # $gen->filter(do {my %seen; sub {not $seen{$_}++}})
-    $gen->deref       # tuples($a, $b)->deref  ~~  zip($a, $b)
-
-combinations:
-
-    $gen->zip($gen2, ...)  # takes any number of generators or array refs
-    $gen->cross($gen2)     # cross product
-    $gen->cross2d($gen2)   # returns a 2D generator containing the same
-                           # elements as the flat ->cross generator
-    $gen->tuples($gen2)    # tuples($gen, $gen2)
-
-the C< zip > and the C< cross > methods all use the comma operator (C< ',' >)
-by default to join their arguments.  if the first argument to any of these
-methods is code or a code like string, that will be used to join the arguments.
-more detail in the overloaded operators section below
-
-    $gen->zip(',' => $gen2)  # same as $gen->zip($gen2)
-    $gen->zip('.' => $gen2)  # $gen[0].$gen2[0], $gen[1].$gen2[1], ...
-
-introspection:
-
-    $gen->type        # returns the package name of the generator
-    $gen->is_mutable  # can the generator change size?
-    $gen->apply       # causes a mutable generator to determine its true size
-
-utility:
-
-    $gen->clone  # copy a generator, resets the index
-    $gen->copy   # copy a generator, preserves the index
-    $gen->purge  # purge any caches in the source chain
-
-traversal:
-
-    $gen->leaves  # returns a coderef iterator that will perform a depth first
-                  # traversal of the edge nodes in a tree of nested generators.
-                  # a full run of the iterator will ->reset all of the internal
-                  # generators
-
-while:
-
-    $gen->while(...)       # While {...} $gen
-    $gen->take_while(...)  # same
-    $gen->drop_while(...)  # $gen->drop( $gen->first_idx(sub {...}) )
-
-    $gen->span           # collects $gen->next calls until one
-                         # returns undef, then returns the collection.
-                         # ->span starts from and moves the ->index
-    $gen->span(sub{...}) # span with an argument splits the list when the code
-                         # returns false, it is equivalent to but more efficient
-                         # than ($gen->take_while(...), $gen->drop_while(...))
-    $gen->break(...)     # $gen->span(sub {not ...})
-
-the methods duplicate and extend the tied functionality and are necessary when
-working with indices outside of perl's array limit C< (0 .. 2**31 - 1) > or when
-fetching a list return value (perl clamps the return to a scalar with the array
-syntax). in all cases, they are also faster than the tied interface.
-
-most of the functions in this package are also methods of generators, including
-by, every, mapn, gen, map (alias of gen), filter, grep (alias of filter), test,
-cache, flip, reverse (alias of flip), expand, collect, overlay, mutable, while,
-until, recursive, rec (alias of recursive).
-
-    my $gen = (range 0, 1_000_000)->gen(sub{$_**2})->filter(sub{$_ % 2});
-    #same as: filter {$_ % 2} gen {$_**2} 0, 1_000_000;
-
-when a method takes a code ref, that code ref can be specified as a string
-containing an operator and an optional curried argument (on either side)
-
-    my $gen = <0 .. 1_000_000>->map('**2')->grep('%2'); # same as above
-
-you can prefix C< ! > or C< not > to negate the operator:
-
-    my $even = <1..>->grep('!%2');  # sub {not $_ % 2}
-
-you can even use a typeglob to specify an operator when the method expects a
-binary subroutine:
-
-    say <1 .. 10>->reduce(*+);  # 55  # and saves a character over '+'
-
-or a regex ref:
-
-    <1..30>->grep(qr/3/)->say; # 3 13 23 30
-
-you can flip the arguments to a binary operator by prefixing it with C< R > or
-by applying the C< ~ > operator to it:
-
-    say <a..d>->reduce('R.'); # 'dcba'  # lowercase r works too
-    say <a..d>->reduce(~'.'); # 'dcba'
-    say <a..d>->reduce(~*.);  # 'dcba'
-
-the methods that do not have a useful return value, such as C<< ->say >>,
-return the same generator they were called with.  this lets you easily insert
-these methods at any point in a method chain for debugging.
-
-=item dwim code dereference
-
-when dereferenced as code, a generator decides what do do based on the
-arguments it is passed.
-
-    $gen->()          ~~  $gen->next
-    $gen->(1)         ~~  $gen->get(1) or $$gen[1]
-    $gen->(1, 2, ...) ~~  $gen->slice(1, 2, ...) or @$gen[1, 2, ...]
-    $gen->(<1..>)     ~~  $gen->slice(<1..>) or $gen->tail
-
-if passed a code ref or regex ref, C<< ->map >> will be called with the argument,
-if passed a reference to a code ref or regex ref, C<< ->grep >> will be called.
-
-    my $pow2 = <0..>->(sub {$_**2});  # calls ->map(sub{...})
-    my $uc   = $gen->(\qr/[A-Z]/);    # calls ->grep(qr/.../)
-
-you can lexically enable code coercion from strings (experimental):
-
-    local $List::Gen::DWIM_CODE_STRINGS = 1;
-
-    my $gen = <0 .. 1_000_000>->('**2')(\'%2');
-                                 ^map   ^grep
-
-due to some scoping issues, if you want to install this dwim coderef into
-a subroutine, the reliable way is to call the C<< ->code >> method:
-
-    *fib = <0, 1, *+*...>->code;  # rather than *fib = \&{<0, 1, *+*...>}
-
-=item generators in loops
+=over 4
 
 evaluation in each of these looping examples remains lazy.  using C< last > to
 escape from the loop early will result in some values never being generated.
@@ -935,7 +716,245 @@ C< &last(...) >
     my $first = $gen->do(sub {&last($_) if /something/});
     # same as:  $gen->first(qr/something/);
 
-=item lazy slices
+you can use generators as file handle iterators:
+
+    local $_;
+    while (<$gen>) {  # calls $gen->next internally
+        # do something with $_
+    }
+
+=back
+
+=head3 generators as objects
+
+all generators have the following methods by default
+
+=over 4
+
+=item * iteration:
+
+    $gen->next       # iterates over generator ~~ $gen->get($gen->index++)
+    $gen->()         # same.  iterators return () when past the end
+
+    $gen->more       # test if $gen->index not past end
+    $gen->reset      # reset iterator to start
+    $gen->reset(4)   # $gen->next returns $$gen[4]
+    $gen->index      # fetches the current position
+    $gen->index = 4  # same as $gen->reset(4)
+    $gen->nxt        # next until defined
+    $gen->iterator   # returns the $gen->next coderef iterator
+
+=item * indexing:
+
+    $gen->get(index)     # returns $$gen[index]
+    $gen->(index)        # same
+
+    $gen->slice(4 .. 12) # returns @$gen[4 .. 12]
+    $gen->(4 .. 12)      # same
+
+    $gen->size           # returns 'scalar @$gen'
+    $gen->all            # same as list context '@$gen' but faster
+    $gen->list           # same as $gen->all
+
+=item * printing:
+
+    $gen->join(' ')      # join ' ', $gen->all
+    $gen->str            # join $", $gen->all (recursive with nested generators)
+    $gen->str(10)        # limits generators to 10 elements
+    $gen->perl           # serializes the generator in array syntax (recursive)
+    $gen->perl(9)        # limits generators to 9 elements
+    $gen->perl(9, '...') # prints ... at the end of each truncated generator
+    $gen->print(...);    # print $gen->str(...)
+    $gen->say(...);      # print $gen->str(...), $/
+    $gen->say(*FH, ...)  # print FH $gen->str(...), $/
+    $gen->dump(...)      # print $gen->perl(...), $/
+    $gen->debug          # carps debugging information
+    $gen->watch(...)     # prints ..., value, $/ each time a value is requested
+
+=item * eager looping:
+
+    $gen->do(sub {...})  # for (@$gen) {...} # but faster
+    $gen->each(sub{...}) # same
+
+=item * slicing:
+
+    $gen->head     # $gen->get(0)
+    $gen->tail     # $gen->slice(<1..>)  # lazy slices
+    $gen->drop(2)  # $gen->slice(<2..>)
+    $gen->take(4)  # $gen->slice(<0..3>)
+    $gen->x_xs     # ($gen->head, $gen->tail)
+
+=item * accessors:
+
+    $gen->range   # range(0, $gen->size - 1)
+    $gen->keys    # same as $gen->range, but a list in list context
+    $gen->values  # same as $gen, but a list in list context
+    $gen->kv      # zip($gen->range, $gen)
+    $gen->pairs   # same as ->kv, but each pair is a tuple (array ref)
+
+=item * randomization:
+
+    $gen->pick     # return a random element from $gen
+    $gen->pick(n)  # return n random elements from $gen
+    $gen->roll     # same as pick
+    $gen->roll(n)  # pick and replace
+    $gen->shuffle  # a lazy shuffled generator
+    $gen->random   # an infinite generator that returns random elements
+
+=item * searching:
+
+    $gen->first(sub {$_ > 5})  # first {$_ > 5} $gen->all # but faster
+    $gen->first('>5')          # same
+    $gen->last(...)            # $gen->reverse->first(...)
+    $gen->first_idx(...)       # same as first, but returns the index
+    $gen->last_idx(...)
+
+=item * sorting:
+
+    $gen->sort                   # sort $gen->all
+    $gen->sort(sub {$a <=> $b})  # sort {$a <=> $b} $gen->all
+    $gen->sort('<=>')            # same
+    $gen->sort('uc', 'cmp')      # does:  map  {$$_[0]}
+                                 #        sort {$$a[1] cmp $$b[1]}
+                                 #        map  {[$_ => uc]} $gen->all
+
+=item * reductions:
+
+    $gen->reduce(sub {$a + $b})  # reduce {$a + $b} $gen->all
+    $gen->reduce('+')            # same
+    $gen->sum         # $gen->reduce('+')
+    $gen->product     # $gen->reduce('*')
+    $gen->scan('+')   # [$$gen[0], sum(@$gen[0..1]), sum(@$gen[0..2]), ...]
+    $gen->min         # min $gen->all
+    $gen->max         # max $gen->all
+
+=item * transforms:
+
+    $gen->cycle       # infinite repetition of a generator
+    $gen->rotate(1)   # [$gen[1], $gen[2] ... $gen[-1], $gen[0]]
+    $gen->rotate(-1)  # [$gen[-1], $gen[0], $gen[1] ... $gen[-2]]
+    $gen->uniq        # $gen->filter(do {my %seen; sub {not $seen{$_}++}})
+    $gen->deref       # tuples($a, $b)->deref  ~~  zip($a, $b)
+
+=item * combinations:
+
+    $gen->zip($gen2, ...)  # takes any number of generators or array refs
+    $gen->cross($gen2)     # cross product
+    $gen->cross2d($gen2)   # returns a 2D generator containing the same
+                           # elements as the flat ->cross generator
+    $gen->tuples($gen2)    # tuples($gen, $gen2)
+
+the C< zip > and the C< cross > methods all use the comma operator (C< ',' >)
+by default to join their arguments.  if the first argument to any of these
+methods is code or a code like string, that will be used to join the arguments.
+more detail in the overloaded operators section below
+
+    $gen->zip(',' => $gen2)  # same as $gen->zip($gen2)
+    $gen->zip('.' => $gen2)  # $gen[0].$gen2[0], $gen[1].$gen2[1], ...
+
+=item * introspection:
+
+    $gen->type        # returns the package name of the generator
+    $gen->is_mutable  # can the generator change size?
+
+=item * utility:
+
+    $gen->apply       # causes a mutable generator to determine its true size
+    $gen->clone  # copy a generator, resets the index
+    $gen->copy   # copy a generator, preserves the index
+    $gen->purge  # purge any caches in the source chain
+
+=item * traversal:
+
+    $gen->leaves  # returns a coderef iterator that will perform a depth first
+                  # traversal of the edge nodes in a tree of nested generators.
+                  # a full run of the iterator will ->reset all of the internal
+                  # generators
+
+=item * while:
+
+    $gen->while(...)       # While {...} $gen
+    $gen->take_while(...)  # same
+    $gen->drop_while(...)  # $gen->drop( $gen->first_idx(sub {...}) )
+
+    $gen->span           # collects $gen->next calls until one
+                         # returns undef, then returns the collection.
+                         # ->span starts from and moves the ->index
+    $gen->span(sub{...}) # span with an argument splits the list when the code
+                         # returns false, it is equivalent to but more efficient
+                         # than ($gen->take_while(...), $gen->drop_while(...))
+    $gen->break(...)     # $gen->span(sub {not ...})
+
+=item * tied vs methods:
+
+the methods duplicate and extend the tied functionality and are necessary when
+working with indices outside of perl's array limit C< (0 .. 2**31 - 1) > or when
+fetching a list return value (perl clamps the return to a scalar with the array
+syntax). in all cases, they are also faster than the tied interface.
+
+=item * functions as methods:
+
+most of the functions in this package are also methods of generators, including
+by, every, mapn, gen, map (alias of gen), filter, grep (alias of filter), test,
+cache, flip, reverse (alias of flip), expand, collect, overlay, mutable, while,
+until, recursive, rec (alias of recursive).
+
+    my $gen = (range 0, 1_000_000)->gen(sub{$_**2})->filter(sub{$_ % 2});
+    #same as: filter {$_ % 2} gen {$_**2} 0, 1_000_000;
+
+=item * dwim code:
+
+when a method takes a code ref, that code ref can be specified as a string
+containing an operator and an optional curried argument (on either side)
+
+    my $gen = <0 .. 1_000_000>->map('**2')->grep('%2'); # same as above
+
+you can prefix C< ! > or C< not > to negate the operator:
+
+    my $even = <1..>->grep('!%2');  # sub {not $_ % 2}
+
+you can even use a typeglob to specify an operator when the method expects a
+binary subroutine:
+
+    say <1 .. 10>->reduce(*+);  # 55  # and saves a character over '+'
+
+or a regex ref:
+
+    <1..30>->grep(qr/3/)->say; # 3 13 23 30
+
+you can flip the arguments to a binary operator by prefixing it with C< R > or
+by applying the C< ~ > operator to it:
+
+    say <a..d>->reduce('R.'); # 'dcba'  # lowercase r works too
+    say <a..d>->reduce(~'.'); # 'dcba'
+    say <a..d>->reduce(~*.);  # 'dcba'
+
+=item * methods without return values:
+
+the methods that do not have a useful return value, such as C<< ->say >>,
+return the same generator they were called with.  this lets you easily insert
+these methods at any point in a method chain for debugging.
+
+=back
+
+=head3 predicates
+
+=over 4
+
+several predicates are available to use with the filtering methods:
+
+    <1..>->grep('even' )->say(5); # 2 4 6 8 10
+    <1..>->grep('odd'  )->say(5); # 1 3 5 7 9
+    <1..>->grep('prime')->say(5); # 2 3 5 7 11
+    <1.. if prime>->say(5);       # 2 3 5 7 11
+
+    others are: defined, true, false
+
+=back
+
+=head3 lazy slices
+
+=over 4
 
 if you call the C< slice > method with a C< range > or other numeric generator
 as its argument, the method will return a generator that will perform the slice
@@ -970,79 +989,43 @@ succinctly as strings, when used as arguments to slice:
     my $tail = $gen->('1..');
     my $tail = $gen->slice('1..');
 
-=item file handles
+=back
 
-you can use generators as file handle iterators:
+=head3 dwim code dereference
 
-    local $_;
-    while (<$gen>) {  # calls $gen->next internally
-        # do something with $_
-    }
+=over 4
 
-=item threads
+when dereferenced as code, a generator decides what do do based on the
+arguments it is passed.
 
-generators have the following multithreaded methods:
+    $gen->()          ~~  $gen->next
+    $gen->(1)         ~~  $gen->get(1) or $$gen[1]
+    $gen->(1, 2, ...) ~~  $gen->slice(1, 2, ...) or @$gen[1, 2, ...]
+    $gen->(<1..>)     ~~  $gen->slice(<1..>) or $gen->tail
 
-    $gen->threads_blocksize(3) # sets size to divide work into
-    $gen->threads_cached;      # implements a threads::shared cache
-    $gen->threads_cached(10)   # as normal, then calls threads_start with arg
+if passed a code ref or regex ref, C<< ->map >> will be called with the argument,
+if passed a reference to a code ref or regex ref, C<< ->grep >> will be called.
 
-    $gen->threads_start;    # creates 4 worker threads
-    $gen->threads_start(2); # or however many you want
-                            # if you don't call it, threads_slice will
+    my $pow2 = <0..>->(sub {$_**2});  # calls ->map(sub{...})
+    my $uc   = $gen->(\qr/[A-Z]/);    # calls ->grep(qr/.../)
 
-    my @list = $gen->threads_slice(0 .. 1000);  # sends work to the threads
-    my @list = $gen->threads_all;
+you can lexically enable code coercion from strings (experimental):
 
-    $gen->threads_stop;     # or let the generator fall out of scope
+    local $List::Gen::DWIM_CODE_STRINGS = 1;
 
-all threads are local to a particular generator, they are not shared.
-if the passed in generator was cached (at the top level) that cache is shared
-and used automatically.  this includes most generators with implicit caches.
-threads_slice and threads_all can be called without starting the threads
-explicitly.  in that case, they will start with default values.
+    my $gen = <0 .. 1_000_000>->('**2')(\'%2');
+                                 ^map   ^grep
 
-threads seem to be broken in perl before 5.10, patches welcome.
+due to some scoping issues, if you want to install this dwim coderef into
+a subroutine, the reliable way is to call the C<< ->code >> method:
 
-=item mutable generators
+    *fib = <0, 1, *+*...>->code;  # rather than *fib = \&{<0, 1, *+*...>}
 
-mutable generators (those returned from mutable, filter, While, Until, and
-iterate_multi) are generators with variable length.  in addition to all normal
-methods, mutable generators have the following methods:
+=back
 
-    $gen->when_done(sub {...})  # schedule a method to be called when the
-                                # generator is exhausted
-                                # when_done can be called multiple times to
-                                # schedule multiple end actions
+=head3 overloaded operators
 
-    $gen->apply;  # causes the generator to evaluate all of its elements in
-                  # order to find out its true size.  it is a bad idea to call
-                  # ->apply on an infinite generator
-
-due to the way perl processes list operations, when perl sees an expression
-like:
-
-    print "@$gen\n"; # or
-    print join ' ' => @$gen;
-
-it calls the internal C< FETCHSIZE > method only once, before it starts getting
-elements from the array.  this is fine for immutable generators.  however, since
-mutable generators do not know their true size, perl will think the array is
-bigger than it really is, and will most likely run off the end of the list,
-returning many undefined elements, or throwing an exception.
-
-the solution to this is to call C<< $gen->apply >> first, or to use the
-C<< $gen->all >> method with mutable generators instead of C< @$gen >, since
-the C<< ->all >> method understands how to deal with arrays that can change size
-while being read.
-
-perl's C< for/foreach > loop is a bit smarter, so just like immutable
-generators, the mutable ones can be dereferenced as the loop argument with no
-problem:
-
-    ... foreach @$mutable_generator;  # works fine
-
-=item overloaded operators
+=over 4
 
 to make the usage of generators a bit more syntactic the following operators
 are overridden:
@@ -1069,7 +1052,7 @@ C<< ->(zip|cross)with >> method is called:
 
     $gen1->zipwith('+', $gen2)  ~~  $gen1->zip('+', $gen2);
 
-hyper operators:
+B<hyper operators>:
 
 not quite as elegant as perl6's hyper operators, but the same idea.  these are
 similar to C< zipwith > but with more control over the length of the returned
@@ -1135,7 +1118,53 @@ hyper negation can be done directly with the prefix minus operator:
 
     -$gen  ~~  $gen >>'-'  ~~  $gen->hyper('-')
 
-=item stream generators
+=back
+
+=head3 mutable generators
+
+=over 4
+
+mutable generators (those returned from mutable, filter, While, Until, and
+iterate_multi) are generators with variable length.  in addition to all normal
+methods, mutable generators have the following methods:
+
+    $gen->when_done(sub {...})  # schedule a method to be called when the
+                                # generator is exhausted
+                                # when_done can be called multiple times to
+                                # schedule multiple end actions
+
+    $gen->apply;  # causes the generator to evaluate all of its elements in
+                  # order to find out its true size.  it is a bad idea to call
+                  # ->apply on an infinite generator
+
+due to the way perl processes list operations, when perl sees an expression
+like:
+
+    print "@$gen\n"; # or
+    print join ' ' => @$gen;
+
+it calls the internal C< FETCHSIZE > method only once, before it starts getting
+elements from the array.  this is fine for immutable generators.  however, since
+mutable generators do not know their true size, perl will think the array is
+bigger than it really is, and will most likely run off the end of the list,
+returning many undefined elements, or throwing an exception.
+
+the solution to this is to call C<< $gen->apply >> first, or to use the
+C<< $gen->all >> method with mutable generators instead of C< @$gen >, since
+the C<< ->all >> method understands how to deal with arrays that can change size
+while being read.
+
+perl's C< for/foreach > loop is a bit smarter, so just like immutable
+generators, the mutable ones can be dereferenced as the loop argument with no
+problem:
+
+    ... foreach @$mutable_generator;  # works fine
+
+=back
+
+=head3 stream generators
+
+=over 4
 
 the generators C<filter>, C<scan>, and C<iterate> (all of its flavors) have
 internal caches that allow random access within the generator.  some algorithms
@@ -1173,16 +1202,35 @@ C<< $gen->reset >> on a stream generator will throw an error.
 
 stream generators are experimental and may change in future versions.
 
-=item predicates
+=back
 
-several predicates are available to use with the filtering methods:
+=head3 threads
 
-    <1..>->grep('even' )->say(5); # 2 4 6 8 10
-    <1..>->grep('odd'  )->say(5); # 1 3 5 7 9
-    <1..>->grep('prime')->say(5); # 2 3 5 7 11
-    <1.. if prime>->say(5);       # 2 3 5 7 11
+=over 4
 
-    others are: defined, true, false
+generators have the following multithreaded methods:
+
+    $gen->threads_blocksize(3) # sets size to divide work into
+    $gen->threads_cached;      # implements a threads::shared cache
+    $gen->threads_cached(10)   # as normal, then calls threads_start with arg
+
+    $gen->threads_start;    # creates 4 worker threads
+    $gen->threads_start(2); # or however many you want
+                            # if you don't call it, threads_slice will
+
+    my @list = $gen->threads_slice(0 .. 1000);  # sends work to the threads
+    my @list = $gen->threads_all;
+
+    $gen->threads_stop;     # or let the generator fall out of scope
+
+all threads are local to a particular generator, they are not shared.
+if the passed in generator was cached (at the top level) that cache is shared
+and used automatically.  this includes most generators with implicit caches.
+threads_slice and threads_all can be called without starting the threads
+explicitly.  in that case, they will start with default values.
+
+the threaded methods only work in perl versions 5.10 and 5.12, patches to
+support other versions are welcome.
 
 =back
 
@@ -1318,21 +1366,6 @@ several predicates are available to use with the filtering methods:
                     my $op = $ops{$1 ? $1 : ~$_};
                     sub ($$) {$op->(reverse @_)}
                 }
-                elsif (not m[/.+/]
-                  and /^ \s* ( ! | not\b | ) \s*
-                      (?: (.+?) \s* ($ops) | ($ops) \s* (.+?) )
-                      \s* $/x
-                ) {
-                    my $arg =      $2 ? $2 : $5;
-                    my $op  = $ops{$2 ? $3 : $4};
-                    if ($1) {
-                        my $normal = $op;
-                        $op = sub {not &$normal}
-                    }
-                    $arg = 'curry'->$eval($arg) unless looks_like_number $arg;
-                    $2 ? sub ($) {$op->($arg, @_ ? $_[0] : $_)}
-                       : sub ($) {$op->(@_ ? $_[0] : $_, $arg)}
-                }
                 elsif (/[\$\@]\s*_\b/) {
                     '$_/@_'->$eval("sub (\$) {$_}")
                 }
@@ -1348,6 +1381,21 @@ several predicates are available to use with the filtering methods:
                         s{\$b(?:\b|$)} '${\$_[1]}'gx;
 
                     '$a $b'->$eval('sub ($$) '."{$_}")
+                }
+                elsif (not m[/.+/]
+                  and /^ \s* ( ! | not\b | ) \s*
+                      (?: (.+?) \s* ($ops) | ($ops) \s* (.+?) )
+                      \s* $/x
+                ) {
+                    my $arg =      $2 ? $2 : $5;
+                    my $op  = $ops{$2 ? $3 : $4};
+                    if ($1) {
+                        my $normal = $op;
+                        $op = sub {not &$normal}
+                    }
+                    $arg = 'curry'->$eval($arg) unless looks_like_number $arg;
+                    $2 ? sub ($) {$op->($arg, @_ ? $_[0] : $_)}
+                       : sub ($) {$op->(@_ ? $_[0] : $_, $arg)}
                 }
                 elsif (/^[a-zA-Z_][\w\s]*$/) {
                     'bareword'->$eval("sub (\$) {$_(\$_)}")
@@ -1453,8 +1501,8 @@ several predicates are available to use with the filtering methods:
             for ($xs, $ys) {
                 next if isagen(my $x = $_);
                 $_ = ref && reftype($_) eq 'ARRAY'
-                     ? &makegen($_)
-                     : $method eq 'zip'
+                    ? &makegen($_)
+                    : $method eq 'zip'
                         ? &repeat($x)
                         : &list($x)
             }
@@ -1547,7 +1595,6 @@ several predicates are available to use with the filtering methods:
                         }
                     }
                 }
-
                 ($xs, $ys) = ($ys, $xs) if $flip;
                 $xs->$method($ys)
             }
@@ -1583,7 +1630,9 @@ several predicates are available to use with the filtering methods:
     #       for sort {lc $a cmp lc $b} keys %List::Gen::erator::}
     my $l2g = \&List::Gen::list;
 
-    sub new {bless $_[1] => 'List::Gen::era::tor'}
+    sub new {
+        goto &_new if $STRICT;
+        bless $_[1] => 'List::Gen::era::tor'}
     {package
         List::Gen::era::tor;
         our @ISA = 'List::Gen::erator';
@@ -1614,6 +1663,7 @@ several predicates are available to use with the filtering methods:
             if($mutable) {
                 $src->tail_size($size)
             }
+            my $dwim_code_strings = $DWIM_CODE_STRINGS;
             my $overload = sub {
                 if (@_ == 0) {
                     ref $index
@@ -1628,14 +1678,14 @@ several predicates are available to use with the filtering methods:
                             $gen->map($_[0])
                         }
                         elsif (ref $_[0] eq 'REF' && $code_ok{ref ${$_[0]}}
-                           or  $DWIM_CODE_STRINGS && ref $_[0] eq 'SCALAR'
+                           or  $dwim_code_strings && ref $_[0] eq 'SCALAR'
                         ) {
                             $gen->grep(${$_[0]})
                         }
                         else {croak "reference '$_[0]' $croak_msg"}
                     }
                     elsif (canglob($_[0]))     {slice($gen, $_[0])}
-                    elsif ($DWIM_CODE_STRINGS) { $gen->map ($_[0])}
+                    elsif ($dwim_code_strings) { $gen->map ($_[0])}
                     else  {croak "value '$_[0]' $croak_msg"}
                 }
                 else {unshift @_, $gen; goto &{$gen->can('slice')}}
@@ -2560,6 +2610,7 @@ several predicates are available to use with the filtering methods:
         sub DESTROY {$_[0]->threads_stop if delete $threaded{$_[0]}}
 
         sub threads_start {
+            $] < 5.013 or Carp::croak "threads not yet supported in perl 5.13+";
             $threaded{$_[0]} = 1;
             my $self = tied @{$_[0]};
             return if $$self{thread_queue};
@@ -2629,8 +2680,8 @@ several predicates are available to use with the filtering methods:
             my $got = $$self{thread_done}->dequeue;
             $result[$$got[0]] = $$got[1];
         }
-        wantarray ? map @$_ => @result :
-        sub {\@_}->(map @$_ => @result)
+        wantarray ? map @$_ => @result
+           : $l2g->(map @$_ => @result)
     }
     sub threads_all {
         my $gen = shift;
@@ -2710,7 +2761,7 @@ several predicates are available to use with the filtering methods:
     };
 
 
-=head3 source generators
+=head2 source generators
 
 =over 4
 
@@ -3568,7 +3619,9 @@ C<< <*.ext> >> operator to have a few special cases overridden, but any case
 that is not overridden will be passed to perl's internal C< glob > function
 (C<< my @files = <*.txt>; >> works as normal).
 
-there are several types of overridden operations:
+=over 4
+
+=item * there are several types of overridden operations:
 
     range:              < [prefix,] low .. [high] [by step] >
 
@@ -3578,7 +3631,7 @@ there are several types of overridden operations:
 
     reduction:          < \[op|name\] (range|iterate|list comprehension) >
 
-range strings match the following pattern:
+=item * range strings match the following pattern:
 
     (prefix,)? number .. number? ((by | += | -= | [-+]) number)?
 
@@ -3597,7 +3650,7 @@ here are a few examples of valid ranges:
     <'a','ab', 0..> ~~  ['a','ab'] + range 0, 9**9**9
     <qw(a ab), 0..> ~~  [qw(a ab)] + range 0, 9**9**9
 
-iterate strings match the following pattern:
+=item * iterate strings match the following pattern:
 
     (.+? ,)+ (.*[*].* | \{ .+ }) ... number?
 
@@ -3625,7 +3678,7 @@ a few more examples:
 
     my $fib = <0,1,*+*...>; # ending star is optional
 
-list comprehension strings match:
+=item * list comprehension strings match:
 
     ( .+ (for | [:|]) )? (range | iterate) ( (if | unless | [?,]) .+ )?
                                            ( (while | until ) .+ )?
@@ -3641,7 +3694,25 @@ examples:
     <0 .. 100 while \< 10>         ~~  While {$_ < 10} range 0, 100
     <*2 for 0.. if %2 while \<10>  ~~  <0..>->grep('%2')->while('<10')->map('*2')
 
-reduction strings match:
+there are three delimiter types available for basic list comprehensions:
+
+    terse:   <*2: 1.. ?%3>
+    haskell: <*2| 1.., %3>
+    verbose: <*2 for 1.. if %3>
+
+you can mix and match C<< <*2 for 1.., %3> >>, C<< <*2| 1.. ?%3> >>
+
+in the above examples, most of the code areas are using abbreviated syntax.
+here are a few equivalencies:
+
+    <*2:1..?%3> ~~ <*2 for 1.. if %3> ~~ <\$_ * 2 for 1 .. * if \$_ % 3>
+
+    <1.. if even> ~~ <1.. if not %2> ~~ <1..?!%2> ~~ <1.. if not _ % 2>
+                  ~~ <1.. unless %2> ~~ <1..* if not \$_ % 2>
+
+    <1.. if %2> ~~ <1.. if _%2> ~~ <1..* ?odd> ~~ <1.. ? \$_ % 2>
+
+=item * reduction strings match:
 
     \[operator | function_name\] (range | iterate | list comp)
 
@@ -3652,18 +3723,18 @@ examples:
 pre/post fixing the operator with '..' uses the C< scan > function instead of
 C< reduce >
 
-    my $fac = <[..*] 1..>; # read as "a running product of one to infinity"
+    my $fac = <[..*] 1..>;  # read as "a running product of one to infinity"
 
-    my $sum = <[+]>;  # no argument returns the reduction function
+    my $sum = <[+]>;        # no argument returns the reduction function
 
-    say $sum->(1 .. 10); # 55
-    say $sum->(<1..10>); # 55
+    say $sum->(1 .. 10);    # 55
+    say $sum->(<1..10>);    # 55
 
-    my $rev_cat = <[R.]>;  # prefix the operator with `R` to reverse it
+    my $rev_cat = <[R.]>;   # prefix the operator with `R` to reverse it
 
     say $rev_cat->(1 .. 9); # 987654321
 
-all of these features can be used together:
+=item * all of these features can be used together:
 
     <[+..] *2 for 0 .. 100 by 2 unless %3 >
 
@@ -3683,12 +3754,16 @@ used:
 
     ([prefix] + (range|iterate))->grep(...)->while(...)->map(...)->reduce(...)
 
+=item * bignums
+
 when run in perl 5.9.4+, glob strings will honor the lexical pragmas C< bignum >,
 C< bigint >, and C< bigrat >.
 
     *factorial = do {use bigint; <[..*] 1, 1..>->code};
 
     say factorial(25); # 15511210043330985984000000
+
+=item * special characters
 
 since the angle brackets (C<< < >> and C<< > >>) are used as delimiters of the
 glob string, they both must be escaped with C< \ > if used in the C<< <...> >>
@@ -3708,6 +3783,8 @@ string:
 
     glob('1..10 if $_ < 5')->say; # 1 2 3 4
 
+=back
+
 =cut
 
     my $get_pragma = do {
@@ -3718,22 +3795,33 @@ string:
                 $init = 0;
                 @pragmas = grep {$INC{"$_.pm"}} qw (bignum bigint bigrat);
             }
-            my $pkg = 'package '.$external_package->(2).'; ';
-            return $pkg if @pragmas == 0 or $] < 5.009004;
+            return '' if @pragmas == 0 or $] < 5.009004;
             my $caller = 1;
             $caller++ while (substr caller $caller, 0 => 9) eq 'List::Gen';
-            join "\n" => $pkg, map {
+            join '' => map {
                 (($_->can('in_effect') or sub{})->($caller + 1)) ? "use $_; " : ''
             } @pragmas
         }
     };
 
-    {my $number = '(?:-\s*)?(?: (?: \d[\d_]* | (?:\d*\.\d+) )(?: e -? \d+)? | [a-zA-Z]+? )';
-     my $prefix = qq{(?: (?: $number | "[^"]+" | '[^']+' | [^,]+ ) \\s* , \\s*)+};
-     my $build_iterate;
-     my $glob = sub {glob $_[0]};
-     use subs 'glob';
-     sub glob {
+    {
+    my $number = qr{
+        (?: - \s* )?
+        (?:
+            (?: \d[\d_]* | (?: \d*\.\d+ ) ) (?: e -? \d+ )?
+        |   [a-zA-Z]+?
+        )
+    }x;
+    my $prefix = qr{
+        (?:
+            (?: $number | "[^"]+" | '[^']+' | [^,]+ )     \s*
+            ,                                             \s*
+        )+
+    }x;
+    my $build_iterate;
+    my $glob = sub {glob $_[0]};
+    use subs 'glob';
+    sub glob {
         local *_ = @_ ? \"$_[0]" : \"$_";
         s/^\s+|\s+$//g;
         my $reduce;
@@ -3741,7 +3829,10 @@ string:
         if (s{^
           \[
             ( (?: \\ | \.\.? | , )  (?! \] ) )?
-            (?: (?:([Rr]{0,1})\s*($ops)) | ( (?=[^Rr0-9_])\w | [a-zA-Z_]\w+) )
+            (?:
+                (?: ( [Rr]{0,1} ) \s* ( $ops ) )
+            |   ( (?=[^Rr0-9_])\w | [a-zA-Z_]\w+ )
+            )
             ( (?: \.\.? | , ) )?
           \]
         }{}x) {
@@ -3760,36 +3851,38 @@ string:
                             : sub {$_[0]->reduce($op)}
         }
         my $pragma = $get_pragma->();
-        if (my ($gen, $pre, $low, $high, $step, $iterate, $filter, $while) = /^
-            (?: (.+)(?:[|:]| \b for \b) ){0,1}                  \s*
-            (?: ($prefix) ){0,1}                                \s*
+        if (my ($gen, $pre, $low, $high, $step, $iterate, $filter, $while) = m{^
+            (?: \s* ( .+? )                                     \s*
+                (?: [|:] | \b for \b)
+            ){0,1}                                              \s*
+            (?: ( $prefix ) ){0,1}                              \s*
             (?:
-               ($number)                                        \s*
-                   \.\.(?!\.)                                   \s*
-               ($number | -?(?:\*|) )                           \s*
+               ( $number )                                      \s*
+                   \.\. (?!\.)                                  \s*
+               ( $number | -?(?:\*|) )                          \s*
                (?:
                    (?: \b by \b | [+]= | \+ | (?=-) )           \s*
-                   ((?: -= \s* )? $number)
+                   ( (?: -= \s* )? $number )
                )?                                               \s*
             |
                 (.*? \s* \.\.\. \s* (?:$number|\*)?)            \s*
             )
             (?:
-                (?: \b if \b | (?=\b unless \b) | \?+ | , )     \s*
-                (.+?)                                           \s*
+                (?: \b if \b | (?=\b unless \b) | [?,] )        \s*
+                ( .+? )                                         \s*
             )?
             (
                 \b (?: while | until ) \b                       \s*
                 .+?
             )?                                                  \s*
-        $/xo) {
+        $}sxo) {
             $filter =~ s/^unless\b/not / if $filter;
             $while  =~ s/^while\s*/not / or
             $while  =~ s/^until\s*//     if $while;
             $pre ||= '';
             my $ret;
             if ($iterate) {
-                $ret = $build_iterate->($pre.$iterate, $pragma);
+                $ret = $build_iterate->($pre.$iterate, $pragma, $pkg);
                 $pre = '';
             } else {
                 $high = 9**9**9 if $high =~ /^\*?$/;
@@ -3822,8 +3915,7 @@ string:
         }
     }
     $build_iterate = sub {
-        local $_   = $_[0];
-        my $pragma = $_[1];
+        (local $_, my ($pragma, $pkg)) = @_;
         if (my ($x, $n) = /^
             ( \w+ | '[^']*' | "[^"]*" )
             \s* \.{3} \s*
@@ -3835,8 +3927,7 @@ string:
         }
         s/$^/\$^/g;
         my ($pre, $block, $star, $end) = /^
-            ($prefix)?
-            \s*
+            ($prefix)?                         \s*
             (?: \{  (.*\$\^\w.*) \}
               | (
                     .*(?: \* | \b_\b ).*
@@ -3844,8 +3935,9 @@ string:
                     | '(?:[^']|\\')*'
                     | "(?:[^"]|\\")*"
                 )
-            )
-            \s* \.{3} \s* ([\d\*]+ | )
+            )                                  \s*
+            \.{3}                              \s*
+            ([\d\*]+ | )
         $/xs
             or croak "parse error: $_";
 
@@ -3888,7 +3980,7 @@ string:
             }
             $self = $star
         }
-        $self = "List::Gen::iterate {$pragma$self} $end";
+        $self = "List::Gen::iterate {package $pkg; $pragma$self} $end";
 
         'iterate'->$say_eval($self) if $SAY_EVAL or DEBUG;
 
@@ -3899,7 +3991,7 @@ string:
         $self = (eval $say.$self
                    or Carp::croak "iterate error: $@\n$say$self\n");
 
-        return $self->from(@$pre) if $from;
+        return $self->from(@$pre) if $from and $pre;
         $self->load(@$pre) if $pre and @$pre;
         $fetch = tied(@$self)->can('FETCH');
         weaken $fetch;
@@ -4066,7 +4158,7 @@ C< primes > always returns the same generator.
 
 =back
 
-=head3 modifying generators
+=head2 modifying generators
 
 =over 4
 
@@ -4504,7 +4596,7 @@ with C< iterate > above.
 
 =back
 
-=head3 mutable generators
+=head2 mutable generators
 
 =over 4
 
@@ -4988,9 +5080,60 @@ condition does not indicate C< done > then the function returns C< VALUE >
     sub done_unless ($@) {!shift @_ ? &done : wantarray ? @_ : pop}
 
 
+=item strict C< {CODE} >
+
+in the C< CODE > block, calls to functions or methods are subject to the
+following localizations:
+
+=over 4
+
+=item * C< local $List::Gen::LOOKAHEAD = 0; >
+
+the functions C< filter >, C< While > and their various forms normally stay an
+element ahead of the last requested element so that an array dereference in a
+C< foreach > loop ends properly. this localization disables this behavior, which
+might be needed for certain algorithms.  it is therefore important to never
+write code like: C< for(@$strict_filtered){...} >, instead write
+C<< $strict_filtered->do(sub{...}) >> which is faster as well. the following
+code illustrates the difference in behavior:
+
+    my $test = sub {
+        my $loud = filter {print "$_, "; $_ % 2};
+        print "($_:", $loud->next, '), ' for 0 .. 2;
+        print $/;
+    };
+    print 'normal: '; $test->();
+    print 'strict: '; strict {$test->()};
+
+    normal: 0, 1, 2, 3, (0:1), 4, 5, (1:3), 6, 7, (2:5),
+    strict: 0, 1, (0:1), 2, 3, (1:3), 4, 5, (2:5),
+
+=item * C< local $List::Gen::DWIM_CODE_STRINGS = 0; >
+
+in the dwim C<< $gen->(...) >> code deref syntax, if C< $DWIM_CODE_STRINGS > has
+been set to a true value, bare strings that look like code will be interpreted
+as code and passed to C< gen > (string refs to C< filter >).  since this
+behavior is fun for golf, but potentially error prone, it is off by default.
+C< strict > turns it back off if it had been turned on.
+
 =back
 
-=head3 combining generators
+C< strict > returns what C< CODE > returns. C< strict > may have additional
+restrictions added to it in the future.
+
+=cut
+
+    sub strict (&) {
+        local $STRICT    = 1;
+        local $LOOKAHEAD = 0;
+        local $DWIM_CODE_STRINGS = 0;
+        $_[0]->()
+    }
+
+
+=back
+
+=head2 combining generators
 
 =over 4
 
@@ -5475,7 +5618,7 @@ generators, each which can be any size. returns a generator
 
 =back
 
-=head3 misc functions
+=head2 misc functions
 
 =over 4
 

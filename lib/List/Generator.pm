@@ -7,7 +7,7 @@ List::Generator - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.96
+version 0.97
 
 =head1 SYNOPSIS
 

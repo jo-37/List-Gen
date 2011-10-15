@@ -3,7 +3,7 @@ use strict;
 use warnings;
 $|=1;
 use Scalar::Util 'weaken';
-use Test::More tests => 1123;
+use Test::More tests => 1150;
 my $srand;
 BEGIN {
     my $max = 2**16;
@@ -685,6 +685,48 @@ t 'glob: <{a,b}{1,2,3}>',
         is =>  $itrf->str, iterate{$_*2}->from(1)->str(10),
         ok => !$itrn->from($check),
         is =>  $itrn->str, <[..*]1, 1..9>->str;
+
+
+    my $forms = '2 4 8 10 14 16 20 22 26 28';
+    t 'glob list comp forms',
+        is => <*2: 1.. ?%3>->str(10),       $forms,  #?
+        is => <*2| 1.., %3>->str(10),       $forms,
+        is => <*2 for 1.. if %3>->str(10),  $forms,
+        is => <*2 for 1.., %3>->str(10),    $forms,
+        is => <*2| 1.. ?%3>->str(10),       $forms,  #?
+        is => <\$_ * 2 for 1 .. * if \$_ % 3>->str(10), $forms,
+        is => <*2:1..?%3>->str(10), $forms; #?
+
+    my $i;
+    t 'glob forms',
+        map {
+            my $want = shift @$_;
+            map {;is => $_->str(10), $want} @$_
+        }
+            ['2 4 6 8 10 12 14 16 18 20' =>
+                <1.. if even>,
+                <1.. if not %2>,
+                <1..?!%2>, #?
+                <1.. unless %2>,
+                <1..* if not \$_ % 2>,
+                <1.. if not _ % 2>,
+            ],
+            ['1 3 5 7 9 11 13 15 17 19' =>
+                <1.. if %2>,
+                <1..* ?odd>,
+                <1.. ? \$_ % 2>,
+                <1.. if _%2>,
+            ],
+            ['1 2 4 8 16 32 64 128 256 512' =>
+                grep {ok tied(@$_)->from($check), 'glob from '.++$i; 1}
+                <1,**2...>,
+                <**2...>->from(1),
+                <1,2**...>,
+                <2**...>->from(1),
+                iterate{$_*2}->from(1),
+            ];
+
+
 
     my $slice = $ints->(<100 .. *>);
 

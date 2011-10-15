@@ -5,6 +5,7 @@ BEGIN {eval 'use Test::More skip_all => "no profile"' if %Devel::Cover::}
 use Test::More tests => 7;
 use lib qw(../lib lib t/lib);
 use List::Gen::Testing;
+BEGIN {$List::Gen::Lazy::Builtins::WARN = 0}
 use List::Gen::Lazy::Builtins;
 
 

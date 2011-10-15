@@ -12,6 +12,9 @@ package List::Gen::Lazy::Builtins;
 
     our (@EXPORT_OK, @EXPORT, %EXPORT_TAGS) = 'wrap';
 
+    our $WARN;
+    $WARN = 1 unless defined $WARN;
+
     my %styles = (
         '$'  => sub {"\$_[@_]"},
         '*'  => sub {"\$_[@_]"},
@@ -72,13 +75,14 @@ package List::Gen::Lazy::Builtins;
                 $pred = "if (\@_ == $num) {";
             }
             my $n = 0;
-            $add->("    $pred return $name(".join(', ' => map {($styles{$_} or die "no style: $_")->($n++)} @$styles).'); }');
+            $add->("    $pred return $name(".join(', ' => map {($styles{$_} or die "$name: no style: $_")->($n++)} @$styles).'); }');
         }
 
         unless (keys %{$cfg{styles}}) {
             $add->("return $name(\@_)")
         }
-        eval "fn @pre @post"
+        no warnings;
+        eval "fn @pre @post" or die $@;
     }
 
     my @builtin = qw(
@@ -106,9 +110,9 @@ package List::Gen::Lazy::Builtins;
 
     for my $fn (@builtin) {
         no strict 'refs';
-        my $code = wrap $fn;
+        my $code = eval {wrap $fn};
         unless ($code) {
-            warn "could not wrap '$fn': $@\n";
+            warn "could not wrap '$fn': $@\n" if $WARN;
             next;
         }
         *$_ = $code for $fn, "lazy_$fn", ucfirst $fn, "_$fn";
@@ -239,6 +243,12 @@ Eric Strom, C<< <asg at cpan.org> >>
 =head1 BUGS
 
 this module has barely been tested, ymmv
+
+several functions are not available in 5.13+ and a warning will be generated.
+to silence this:
+
+    BEGIN {$List::Gen::Lazy::Builtins::WARN = 0}  # before calling 'use'
+    use List::Gen::Lazy::Builtins;
 
 report any bugs / feature requests to C<bug-list-gen at rt.cpan.org>, or through
 the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=List-Gen>.
