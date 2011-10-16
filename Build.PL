@@ -7,6 +7,7 @@ my $builder = Module::Build->new(
     license            => 'perl',
     dist_author        => q{Eric Strom <asg@cpan.org>},
     dist_version_from  => 'lib/List/Gen.pm',
+    requires           => {perl => '5.8.9'},
     add_to_cleanup     => ['List-Gen-*'],
     create_makefile_pl => 'traditional',
 );

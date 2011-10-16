@@ -38,3 +38,6 @@ Revision history for List-Gen
 
 0.971   2011.10.15
         fix for listgenerator.t
+
+0.972   2011.10.16
+        added minimum perl version 5.8.9

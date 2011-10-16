@@ -13,7 +13,7 @@ name: List-Gen
 provides:
   List::Gen:
     file: lib/List/Gen.pm
-    version: 0.971
+    version: 0.972
   List::Gen::Benchmark:
     file: lib/List/Gen/Benchmark.pm
   List::Gen::Cookbook:
@@ -30,6 +30,8 @@ provides:
     file: lib/List/Gen/Perl6.pm
   List::Generator:
     file: lib/List/Generator.pm
+requires:
+  perl: v5.8.9
 resources:
   license: http://dev.perl.org/licenses/
-version: 0.971
+version: 0.972
