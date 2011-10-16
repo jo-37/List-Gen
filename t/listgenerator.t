@@ -1,11 +1,12 @@
 #!/usr/bin/perl
 use strict;
 use warnings;
-use Test::More;
+BEGIN {$| = 1}
+use Test::More tests => 111;
 use lib qw(../lib lib t/lib);
-use List::Gen::Testing;
 
 BEGIN {use_ok 'List::Generator'}
+use List::Gen::Testing;
 
 t "List::Gen == List::Generator",
     is => \%List::Gen::, \%List::Generator::,
@@ -27,4 +28,4 @@ t 'List::Generator not import',
     }
 }
 
-plan tests => @List::Gen::EXPORT + @List::Gen::EXPORT_OK + 5;
+#plan tests => @List::Gen::EXPORT + @List::Gen::EXPORT_OK + 5;

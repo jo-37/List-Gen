@@ -3,7 +3,7 @@ use strict;
 use warnings;
 $|=1;
 use Scalar::Util 'weaken';
-use Test::More tests => 1150;
+use Test::More tests => 1151;
 my $srand;
 BEGIN {
     my $max = 2**16;
@@ -29,7 +29,7 @@ use List::Gen::Testing;
 #    *filter = *filter_stream;
 #}
 
-#diag "List::Gen $List::Gen::VERSION";
+t 'version' => is => $List::Gen::VERSION, List::Gen->VERSION;
 
 t 'mapn',
     is => join(' ' => mapn {$_ % 2 ? "[@_]" : "@_"} 3 => 1 .. 10), '[1 2 3] 4 5 6 [7 8 9] 10';

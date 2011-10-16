@@ -41,3 +41,6 @@ Revision history for List-Gen
 
 0.972   2011.10.16
         added minimum perl version 5.8.9
+
+0.973   2011.10.16
+        fixed a bug with List::Gen->VERSION, thanks ANDK for pointing it out.
