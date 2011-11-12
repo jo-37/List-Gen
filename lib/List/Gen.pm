@@ -40,8 +40,8 @@ package List::Gen;
 
         :mutable    mutable done done_if done_unless
 
-        :filter     filter                   == Grep
-                    filter_stream == filterS == grepS
+        :filter     filter
+                    filter_stream == filterS
                     filter_ # non-lookahead version
 
         :while      take_while == While
@@ -87,7 +87,7 @@ package List::Gen;
 
     my $MAX_IDX = eval {require POSIX; POSIX::DBL_MAX()} || 2**53 - 1;
 
-    our $VERSION = '0.973';
+    our $VERSION = '0.974';
 
 =head1 NAME
 
@@ -95,7 +95,7 @@ List::Gen - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.973
+version 0.974
 
 =head1 SYNOPSIS
 
@@ -150,7 +150,7 @@ functions, and all functions from List::Util are available.
         :source     range glob makegen list array vecgen repeat file
 
         :modify     gen cache expand contract collect slice flip overlay
-                    test recursive sequence scan scan_stream scanS
+                    test recursive sequence scan scan_stream == scanS
                     cartesian transpose stream strict
 
         :zip        zip zipgen tuples zipwith zipwithab unzip unzipn
@@ -168,8 +168,8 @@ functions, and all functions from List::Util are available.
 
         :mutable    mutable done done_if done_unless
 
-        :filter     filter                   == Grep
-                    filter_stream == filterS == grepS
+        :filter     filter
+                    filter_stream == filterS
                     filter_ # non-lookahead version
 
         :while      take_while == While
@@ -420,6 +420,7 @@ only need a few, the generator won't need to compute all of the other slices.
 
         $size ++ if $size > int $size;
         $size = int $size;
+        my %cache;
         curse {
             FETCH => isagen($source)
                 ? do {
@@ -428,13 +429,13 @@ only need a few, the generator won't need to compute all of the other slices.
                     $source->tail_size($src_size) if $source->is_mutable;
                     sub {
                         my $i = $n * $_[1];
-                        $i < $src_size
+                        $cache{$i} ||= $i < $src_size
                             ? cap (map $fetch->(undef, $_) => $i .. min($last, $i + $n - 1))
                             : croak "index $_[1] out of bounds [0 .. @{[int( $#$source / $n )]}]"
                    }
                 } : sub {
                     my $i = $n * $_[1];
-                    $i < @$source
+                    $cache{$i} ||= $i < @$source
                        ? cap (@$source[$i .. min($last, $i + $n - 1)])
                        : croak "index $_[1] out of bounds [0 .. @{[int( $#$source / $n )]}]"
                 },
@@ -731,7 +732,7 @@ all generators have the following methods by default
 
 =over 4
 
-=item * iteration:
+=item * B<iteration>:
 
     $gen->next       # iterates over generator ~~ $gen->get($gen->index++)
     $gen->()         # same.  iterators return () when past the end
@@ -744,7 +745,7 @@ all generators have the following methods by default
     $gen->nxt        # next until defined
     $gen->iterator   # returns the $gen->next coderef iterator
 
-=item * indexing:
+=item * B<indexing>:
 
     $gen->get(index)     # returns $$gen[index]
     $gen->(index)        # same
@@ -756,7 +757,7 @@ all generators have the following methods by default
     $gen->all            # same as list context '@$gen' but faster
     $gen->list           # same as $gen->all
 
-=item * printing:
+=item * B<printing>:
 
     $gen->join(' ')      # join ' ', $gen->all
     $gen->str            # join $", $gen->all (recursive with nested generators)
@@ -771,12 +772,12 @@ all generators have the following methods by default
     $gen->debug          # carps debugging information
     $gen->watch(...)     # prints ..., value, $/ each time a value is requested
 
-=item * eager looping:
+=item * B<eager looping>:
 
     $gen->do(sub {...})  # for (@$gen) {...} # but faster
     $gen->each(sub{...}) # same
 
-=item * slicing:
+=item * B<slicing>:
 
     $gen->head     # $gen->get(0)
     $gen->tail     # $gen->slice(<1..>)  # lazy slices
@@ -784,7 +785,7 @@ all generators have the following methods by default
     $gen->take(4)  # $gen->slice(<0..3>)
     $gen->x_xs     # ($gen->head, $gen->tail)
 
-=item * accessors:
+=item * B<accessors>:
 
     $gen->range   # range(0, $gen->size - 1)
     $gen->keys    # same as $gen->range, but a list in list context
@@ -792,7 +793,7 @@ all generators have the following methods by default
     $gen->kv      # zip($gen->range, $gen)
     $gen->pairs   # same as ->kv, but each pair is a tuple (array ref)
 
-=item * randomization:
+=item * B<randomization>:
 
     $gen->pick     # return a random element from $gen
     $gen->pick(n)  # return n random elements from $gen
@@ -801,7 +802,7 @@ all generators have the following methods by default
     $gen->shuffle  # a lazy shuffled generator
     $gen->random   # an infinite generator that returns random elements
 
-=item * searching:
+=item * B<searching>:
 
     $gen->first(sub {$_ > 5})  # first {$_ > 5} $gen->all # but faster
     $gen->first('>5')          # same
@@ -809,7 +810,7 @@ all generators have the following methods by default
     $gen->first_idx(...)       # same as first, but returns the index
     $gen->last_idx(...)
 
-=item * sorting:
+=item * B<sorting>:
 
     $gen->sort                   # sort $gen->all
     $gen->sort(sub {$a <=> $b})  # sort {$a <=> $b} $gen->all
@@ -818,7 +819,7 @@ all generators have the following methods by default
                                  #        sort {$$a[1] cmp $$b[1]}
                                  #        map  {[$_ => uc]} $gen->all
 
-=item * reductions:
+=item * B<reductions>:
 
     $gen->reduce(sub {$a + $b})  # reduce {$a + $b} $gen->all
     $gen->reduce('+')            # same
@@ -828,7 +829,7 @@ all generators have the following methods by default
     $gen->min         # min $gen->all
     $gen->max         # max $gen->all
 
-=item * transforms:
+=item * B<transforms>:
 
     $gen->cycle       # infinite repetition of a generator
     $gen->rotate(1)   # [$gen[1], $gen[2] ... $gen[-1], $gen[0]]
@@ -836,7 +837,7 @@ all generators have the following methods by default
     $gen->uniq        # $gen->filter(do {my %seen; sub {not $seen{$_}++}})
     $gen->deref       # tuples($a, $b)->deref  ~~  zip($a, $b)
 
-=item * combinations:
+=item * B<combinations>:
 
     $gen->zip($gen2, ...)  # takes any number of generators or array refs
     $gen->cross($gen2)     # cross product
@@ -852,26 +853,26 @@ more detail in the overloaded operators section below
     $gen->zip(',' => $gen2)  # same as $gen->zip($gen2)
     $gen->zip('.' => $gen2)  # $gen[0].$gen2[0], $gen[1].$gen2[1], ...
 
-=item * introspection:
+=item * B<introspection>:
 
     $gen->type        # returns the package name of the generator
     $gen->is_mutable  # can the generator change size?
 
-=item * utility:
+=item * B<utility>:
 
-    $gen->apply       # causes a mutable generator to determine its true size
+    $gen->apply  # causes a mutable generator to determine its true size
     $gen->clone  # copy a generator, resets the index
     $gen->copy   # copy a generator, preserves the index
     $gen->purge  # purge any caches in the source chain
 
-=item * traversal:
+=item * B<traversal>:
 
     $gen->leaves  # returns a coderef iterator that will perform a depth first
                   # traversal of the edge nodes in a tree of nested generators.
                   # a full run of the iterator will ->reset all of the internal
                   # generators
 
-=item * while:
+=item * B<while>:
 
     $gen->while(...)       # While {...} $gen
     $gen->take_while(...)  # same
@@ -885,14 +886,14 @@ more detail in the overloaded operators section below
                          # than ($gen->take_while(...), $gen->drop_while(...))
     $gen->break(...)     # $gen->span(sub {not ...})
 
-=item * tied vs methods:
+=item * B<tied vs methods>:
 
 the methods duplicate and extend the tied functionality and are necessary when
 working with indices outside of perl's array limit C< (0 .. 2**31 - 1) > or when
 fetching a list return value (perl clamps the return to a scalar with the array
 syntax). in all cases, they are also faster than the tied interface.
 
-=item * functions as methods:
+=item * B<functions as methods>:
 
 most of the functions in this package are also methods of generators, including
 by, every, mapn, gen, map (alias of gen), filter, grep (alias of filter), test,
@@ -902,7 +903,7 @@ until, recursive, rec (alias of recursive).
     my $gen = (range 0, 1_000_000)->gen(sub{$_**2})->filter(sub{$_ % 2});
     #same as: filter {$_ % 2} gen {$_**2} 0, 1_000_000;
 
-=item * dwim code:
+=item * B<dwim code>:
 
 when a method takes a code ref, that code ref can be specified as a string
 containing an operator and an optional curried argument (on either side)
@@ -929,7 +930,7 @@ by applying the C< ~ > operator to it:
     say <a..d>->reduce(~'.'); # 'dcba'
     say <a..d>->reduce(~*.);  # 'dcba'
 
-=item * methods without return values:
+=item * B<methods without return values>:
 
 the methods that do not have a useful return value, such as C<< ->say >>,
 return the same generator they were called with.  this lets you easily insert
@@ -1229,7 +1230,7 @@ and used automatically.  this includes most generators with implicit caches.
 threads_slice and threads_all can be called without starting the threads
 explicitly.  in that case, they will start with default values.
 
-the threaded methods only work in perl versions 5.10 and 5.12, patches to
+the threaded methods only work in perl versions 5.10.1 to 5.12.x, patches to
 support other versions are welcome.
 
 =back
@@ -2008,6 +2009,7 @@ support other versions are welcome.
         my $perl        = !$num ? ''
                         : ($stream ? 'from '.$gen->index.': ' : '')
                         . ($stream ? $gen->idx : $gen)->perl($num, '...');
+
         Carp::carp join '' => map {
             sprintf "%-8s %s\n", "$$_[0]:",
                 $#$_ > 0 ? join ', ' => @$_[1 .. $#$_] : 'none'
@@ -2540,15 +2542,15 @@ support other versions are welcome.
             }
         }
         {no warnings 'once';
-            *map    = *gen;
-            *grep   = *filter;
-            *x      = *X           = *cross;
-            *z      = *Z           = *zip;
-            *while  = *take_while  = *While;
-            *until  = *take_until  = *Until;
-            *grepS  = *grep_stream = *filter_stream;
-            *rec    = *with_self   = *withself       = *recursive;
-            *cached = *memoized    = *memoize        = *cache;
+            *map     = *gen;
+            *grep    = *filter;
+            *x       = *X           = *cross;
+            *z       = *Z           = *zip;
+            *while   = *take_while  = *While;
+            *until   = *take_until  = *Until;
+            *rec     = *with_self   = *withself    = *recursive;
+            *cached  = *memoized    = *memoize     = *cache;
+            *filterS = *grepS       = *grep_stream = *filter_stream;
         }
         for my $internal (qw(set_size when_done clear_done is_mutable set from
                             PUSH POP SHIFT UNSHIFT SPLICE tail_size load)) {
@@ -4659,7 +4661,7 @@ C< $List::Gen::LOOKAHEAD = 0 > or use C< filter_ ... >
     sub filter (&;$$$) {
         goto &filter_stream if $STREAM;
         tiegen Filter => shift, tied @{&dwim}
-    } BEGIN {*Grep = *filter}
+    }
     mutable_gen Filter => sub {
         my ($class, $check, $source) = @_;
         my ($fetch, $fsize)   = $source->closures;
@@ -4708,7 +4710,7 @@ C< $List::Gen::LOOKAHEAD = 0 > or use C< filter_ ... >
 
     sub filter_ (&;$$$) {
         local $LOOKAHEAD;
-        $STREAM ? &filter_stream : &filter
+        &filter
     }
 
 
@@ -4735,7 +4737,7 @@ C<< $gen->grep_stream(...) >>
     sub filter_stream (&;$$$) {
          tiegen Filter_Stream => shift, tied @{&dwim}
     }
-    BEGIN {*filterS = *grepS = *filter_stream}
+    BEGIN {*filterS = *filter_stream}
 
     mutable_gen Filter_Stream => sub {
         my ($class, $code, $src) = @_;
@@ -4916,6 +4918,7 @@ in general, it is faster to write it this way:
         if ($source->mutable) {
             $source->tail_size($src_size)
         }
+        my $lookahead = $LOOKAHEAD;
         my (@next, @tails) = -1;
         my $when_done = sub {};
         my $done = sub {
@@ -4935,7 +4938,7 @@ in general, it is faster to write it this way:
                     local *_ = $i == $next[0] ? $next[1] : \$fetch->(undef, $i);
                     return $done->($i) unless $i < $src_size and $check->();
 
-                    if ($LOOKAHEAD and $i + 1 < $src_size) {
+                    if ($lookahead and $i + 1 < $src_size) {
                         local *_ = \$fetch->(undef, $i + 1);
                         if ($i + 1 < $src_size and $check->()) {
                             @next = ($i + 1, \$_)
@@ -5124,8 +5127,8 @@ restrictions added to it in the future.
 =cut
 
     sub strict (&) {
-        local $STRICT    = 1;
-        local $LOOKAHEAD = 0;
+        local $STRICT            = 1;
+        local $LOOKAHEAD         = 0;
         local $DWIM_CODE_STRINGS = 0;
         $_[0]->()
     }
@@ -5630,7 +5633,7 @@ this function is syntactic sugar for the following idiom
         map {
             my $first = $_;
             map {
-                my $second = $_
+                my $second = $_;
                 map {
                     $first . $second . $_
                 } 1 .. 3
@@ -5653,7 +5656,7 @@ this function is syntactic sugar for the following idiom
         local $_{$key};
         map {
             $_{$key} = $_;
-            $code->();
+            $code->()
         } @_
     }
 
@@ -5683,7 +5686,7 @@ iteration, C< $b > will be C< undef >
                 *$a = \shift;
                 *$b = \undef;
             } else {
-                (*$a, *$b) = \splice @_, 0, 2;
+                (*$a, *$b) = \splice @_, 0, 2
             }
             if ($want) {push @ret => $code->()}
             else {$code->()}
@@ -5708,14 +5711,9 @@ as the window reaches the end, the passed in slice will shrink
 =cut
 
     sub slide (&$@) {
-        my ($code, $n, @ret) = splice @_, 0, 2;
-
-        push @ret, $code->( @_[ $_ .. $_ + $n ] )
-            for 0 .. $#_ - --$n;
-
-        push @ret, $code->( @_[ $_ .. $#_ ])
-            for $#_ - $n + 1 .. $#_;
-        @ret
+        my ($code, $window) = splice @_, 0, 2;
+        $window--;
+        map $code->(@_[$_ .. min $_+$window, $#_]) => 0 .. $#_
     }
 
 
@@ -5877,10 +5875,6 @@ operators to use with generators, rather than the default overloaded operators
 
 =back
 
-=head1 AUTHOR
-
-Eric Strom, C<< <asg at cpan.org> >>
-
 =head1 CAVEATS
 
 version 0.90 added C< glob > to the default export list (which gives you
@@ -5974,6 +5968,10 @@ array elements, as shown below:
     say "@$x : @$y"; # 11 12 13 : 1 2 3
 
 =back
+
+=head1 AUTHOR
+
+Eric Strom, C<< <asg at cpan.org> >>
 
 =head1 BUGS
 

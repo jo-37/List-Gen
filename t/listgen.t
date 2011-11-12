@@ -2616,7 +2616,7 @@ T {
         is do {
             my ($x, $y) = (0, 1);
             While   {$_ < 4_000_000}
-            grepS   {not $_ % 2}
+            filterS {not $_ % 2}
             gatherS {($x, $y) = ($y, take($x) + $y)}
         }->sum
         => 4613732;
@@ -2853,7 +2853,7 @@ T {
 
             is filter{}->type,          'List::Gen::Filter'.$test;
             is &filter(sub{})->type,    'List::Gen::Filter'.$test;
-            is Grep{}->type,            'List::Gen::Filter'.$test;
+            is filter_{}->type,            'List::Gen::Filter'.$test;
             is <1..>->grep('>1')->type, 'List::Gen::Filter'.$test;
             is <1..>->filter(*!)->type, 'List::Gen::Filter'.$test;
             is iterate{}->type,         'List::Gen::Iterate'.$test;

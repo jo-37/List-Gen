@@ -7,7 +7,7 @@ List::Generator - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.973
+version 0.974
 
 =head1 SYNOPSIS
 
@@ -23,6 +23,10 @@ every way.
     my $fib = <0, 1, *+* ...>;
 
     say "@$fib[0 .. 10]"; # 0 1 1 2 3 5 8 13 21 34 55
+
+    list(1 .. 5)->map('*2')->say; # 2 4 6 8 10
+
+    <1..>->zip('.' => <a..>)->say(5); # 1a 2b 3c 4d 5e
 
 each line below prints C< '1 9 25 49 81' >:
 

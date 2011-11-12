@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 BEGIN {$| = 1}
-use Test::More tests => 111;
+use Test::More tests => 109;
 use lib qw(../lib lib t/lib);
 
 BEGIN {use_ok 'List::Generator'}

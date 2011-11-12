@@ -6,35 +6,36 @@ package
 
     sub import {
         no strict 'refs';
-        *{caller().'::t'} = \&t;
-        *{caller().'::T'} = sub (&) {goto &t};
+        *{(caller).'::t'} = \&t;
+        *{(caller).'::T'} = sub (&) {goto &t};
     }
 
-    my %arity = (
-        ok        => 1,
-        is        => 2,
-        is_deeply => 2,
-        like      => 2,
-        cmp_ok    => 3,
+    my %arity = qw (
+        ok         1
+        is         2
+        is_deeply  2
+        like       2
+        cmp_ok     3
     );
-
+    my @tests = keys %arity;
     our ($name, $count, $declare);
-    my @tests;
+
     sub setup_subs {
         for my $sub (keys %arity) {
-            push @tests, $sub;
             my $code = Test::More->can($sub) or die "no test '$sub'";
             no strict 'refs';
-            *$sub = sub {$code->(@_, $name.' '.++$count)};
+            *$sub = sub {
+                use strict;
+                $code->(@_, $name.' '.++$count)
+            }
         }
     }
 
     sub t {
         if (@_ == 1 and ref $_[0] ne 'CODE') {
             $declare or croak "test name '@_' declaration outside of test sub";
-            $name  = shift;
-            $count = 0;
-            return;
+            $name = shift;
+            return $count = 0
         }
         local $name = shift if @_ > 1;
         local $Test::Builder::Level
@@ -59,4 +60,4 @@ package
         }
     }
 
-    1;
+    1

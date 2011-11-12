@@ -8,7 +8,7 @@ BEGIN {
         exit;
     };
     eval q{
-        use 5.010;
+        use 5.010_001;
         BEGIN {die if %Devel::Cover::}
         use threads;
         use threads::shared;
