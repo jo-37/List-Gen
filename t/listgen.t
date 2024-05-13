@@ -92,7 +92,8 @@ t 'apply 2',
         is => "@$x : @$y", '11 12 13 : 1 2 3';
 }
 {
-    my ($x, $y) = map & \(1 .. 3), 1 .. 2;
+    my ($x1, $x2, $x3) = (1 .. 3);
+    my ($x, $y) = map & \($x1, $x2, $x3), 1 .. 2;
     $_ += 10 for @$x;
     t 'map & \(1 .. 3), 1 .. 2',
         is => "@$x : @$y", '11 12 13 : 11 12 13';
@@ -1383,7 +1384,7 @@ eval {
     t 'while, over-- after over',
         is => $$while[19], undef;
 
-    my $deref = While {$_ < 10} gen {$_};
+    my $deref = While {$_ < 10} <0..99>;
 
     t 'while, array deref outside foreach',
         ok => !eval {my $x = join ' ' => @$deref; 1};
