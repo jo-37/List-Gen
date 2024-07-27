@@ -3,12 +3,12 @@ abstract: 'provides functions for generating lists'
 author:
   - 'Eric Strom <asg@cpan.org>'
 configure_requires:
-  Module::Build: 0.36
+  Module::Build: 0.37
 generated_by: 'Module::Build version 0.3607'
 license: perl
 meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.4.html
-  version: 1.4
+  url: https://metacpan.org/pod/CPAN::Meta::Spec
+  version: 2
 name: List-Gen
 provides:
   List::Gen:
@@ -31,7 +31,11 @@ provides:
   List::Generator:
     file: lib/List/Generator.pm
 requires:
-  perl: v5.8.6
+  perl: v5.10.0
 resources:
   license: http://dev.perl.org/licenses/
+  repository:
+    type: git
+    web: https://github.com/jo-37/list-gen.git
+    url: git://github.com/jo-37/list-gen.git
 version: 0.974
