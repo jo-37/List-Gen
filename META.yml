@@ -13,7 +13,7 @@ name: List-Gen
 provides:
   List::Gen:
     file: lib/List/Gen.pm
-    version: 0.974
+    version: 0.975
   List::Gen::Benchmark:
     file: lib/List/Gen/Benchmark.pm
   List::Gen::Cookbook:
@@ -38,4 +38,4 @@ resources:
     type: git
     web: https://github.com/jo-37/list-gen.git
     url: git://github.com/jo-37/list-gen.git
-version: 0.974
+version: 0.976
