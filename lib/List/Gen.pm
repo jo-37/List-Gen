@@ -1230,8 +1230,7 @@ and used automatically.  this includes most generators with implicit caches.
 threads_slice and threads_all can be called without starting the threads
 explicitly.  in that case, they will start with default values.
 
-the threaded methods only work in perl versions 5.10.1 to 5.12.x, patches to
-support other versions are welcome.
+the threaded methods are not reliable in perl versions below 5.16.
 
 =back
 
