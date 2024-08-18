@@ -56,3 +56,7 @@ Revision history for List-Gen
         fix file tests, see https://rt.cpan.org/Ticket/Display.html?id=76484
         use Fisher/Yates/Durstenfeld shuffle, see https://rt.cpan.org/Ticket/Display.html?id=74245
         minimum perl version 5.10.0
+
+0.977   2024.xx.xx
+		add Contributing.md
+		exclude threads tests for version below 5.16
