@@ -1301,7 +1301,7 @@ the threaded methods are not reliable in perl versions below 5.16.
 }
 
     my $op2cv = do {
-        my %unary_only = map {$_ => 1} qw (! \ ~);
+        my %unary_only = map {$_ => 1} qw (! ~), "\\";
         my %unary_ok   = map {$_ => 1} qw (+ - not);
         sub {
             my $op  = shift;
@@ -1323,8 +1323,8 @@ the threaded methods are not reliable in perl versions below 5.16.
     my %ops = map {$_ => $_->$op2cv} qw (
         + - / * ** x % . & | ^ < >  << >> <=> cmp lt gt eq ne le ge == != <= >=
         and or xor && || =~ !~
-        ! \ ~
-    );
+        ! ~
+    ), "\\";
     my $ops = join '|' =>
               map  {('\b' x /^\w/).(quotemeta).('\b' x /\w$/)}
               sort {length $b <=> length $a}
@@ -1612,7 +1612,7 @@ the threaded methods are not reliable in perl versions below 5.16.
             my %unary = map {
                 (my $op = $_) =~ s/^u//i;
                 $_ => (eval (m/(..)(.)/?"sub {$1\$_[0]$2}":"sub {$op \$_[0]}") or die $@)
-            } qw (! ~ \ @{} ${} %{} &{} *{} U- U+ u- u+);
+            } qw (! ~ @{} ${} %{} &{} *{} U- U+ u- u+), "\\";
             map {
                 my $op = $_;
                 $op => sub {
