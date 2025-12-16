@@ -186,7 +186,6 @@ before 5.10.  the corresponding methods can be used instead.
         my ($pipe, $pos, $size) = (\@_, 0, 0);
         my ($type, $src, $ref, $mutable);
         my $next = sub {
-            start: {
             shift_pipe: until ($size) {
                 @$pipe or return;
                 $src = shift @$pipe;
@@ -217,7 +216,7 @@ before 5.10.  the corresponding methods can be used instead.
                     $got  = \$src->get($pos);
                     $size = $src->size if $mutable;
                     if ($pos >= $size) {
-                        redo start;
+                        redo shift_pipe;
                     }
                 }
                 else {
@@ -230,7 +229,7 @@ before 5.10.  the corresponding methods can be used instead.
                         ? $pos--
                         : do {
                             $pos = $size = 0;
-                            redo start;
+                            redo shift_pipe;
                         }
                 }
                 else {$got = \$src}
@@ -239,7 +238,7 @@ before 5.10.  the corresponding methods can be used instead.
                   $pos  = $size = 0
             }
             $$got
-        }};
+        };
         curse {
             next  => $next,
             more  => sub {@$pipe or $pos < $size},
