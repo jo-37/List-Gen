@@ -38,4 +38,4 @@ resources:
     type: git
     web: https://github.com/jo-37/list-gen.git
     url: git://github.com/jo-37/list-gen.git
-version: 0.976_01
+version: 0.976_02

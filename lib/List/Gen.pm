@@ -87,7 +87,7 @@ package List::Gen;
 
     my $MAX_IDX = eval {require POSIX; POSIX::DBL_MAX()} || 2**53 - 1;
 
-    our $VERSION = '0.976_01';
+    our $VERSION = '0.976_02';
 
 =head1 NAME
 
@@ -95,7 +95,7 @@ List::Gen - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.976_01
+version 0.976_02
 
 =head1 SYNOPSIS
 
@@ -1300,6 +1300,7 @@ the threaded methods are not reliable in perl versions below 5.16.
     }
 }
 
+    no warnings 'qw';
     my $op2cv = do {
         my %unary_only = map {$_ => 1} qw (! ~), "\\";
         my %unary_ok   = map {$_ => 1} qw (+ - not);
@@ -1323,8 +1324,9 @@ the threaded methods are not reliable in perl versions below 5.16.
     my %ops = map {$_ => $_->$op2cv} qw (
         + - / * ** x % . & | ^ < >  << >> <=> cmp lt gt eq ne le ge == != <= >=
         and or xor && || =~ !~
-        ! ~
-    ), "\\";
+        ! \ ~
+    );
+    use warnings;
     my $ops = join '|' =>
               map  {('\b' x /^\w/).(quotemeta).('\b' x /\w$/)}
               sort {length $b <=> length $a}
@@ -1609,6 +1611,7 @@ the threaded methods are not reliable in perl versions below 5.16.
             $_ => sub {$_[0]->hyper($op)}
         } qw (neg ! ~)),
         do {
+            no warnings 'qw';
             my %unary = map {
                 (my $op = $_) =~ s/^u//i;
                 $_ => (eval (m/(..)(.)/?"sub {$1\$_[0]$2}":"sub {$op \$_[0]}") or die $@)
