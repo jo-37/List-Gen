@@ -1,4 +1,5 @@
 package List::Generator;
+use warnings;
 BEGIN {require List::Gen}
 
 =head1 NAME
