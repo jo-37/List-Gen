@@ -87,7 +87,7 @@ package List::Gen;
 
     my $MAX_IDX = eval {require POSIX; POSIX::DBL_MAX()} || 2**53 - 1;
 
-    our $VERSION = '0.976';
+    our $VERSION = '0.976_01';
 
 =head1 NAME
 
@@ -95,7 +95,7 @@ List::Gen - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.976
+version 0.976_01
 
 =head1 SYNOPSIS
 
@@ -4126,12 +4126,12 @@ C< primes > always returns the same generator.
                 }
                 $build->(1000);
                 &iterate(sub {
+                    my $trial_division;
                     if (List::Gen::DEBUG_PRIME and $DEBUG_PRIME) {
                         return $n++ if $n == 2;
-                        no warnings;
-                        goto trial_division
+                        $trial_division = 1;
                     }
-                    if ($n <= 9999991) {
+                    if (!$trial_division && $n <= 9999991) {
                         $n > $max and $build->($n * 10)
                            until length($prime) >= $n && substr $prime, $n++, 1;
                         return $n - 1;
@@ -4153,14 +4153,14 @@ C< primes > always returns the same generator.
         $ops{prime} = sub ($) {
             my $n = @_ ? $_[0] : $_;
             return $n == 2 if not $n & 1 or $n < 2;
+            my $trial_division;
             if (List::Gen::DEBUG_PRIME and $DEBUG_PRIME) {
-                no warnings;
-                goto trial_division
+                $trial_division = 1;
             }
-            if ($have_mpu && !$FORCE_PRIME) {
+            if (!$trial_division && $have_mpu && !$FORCE_PRIME) {
                 return Math::Prime::Util::is_prime($n);
             }
-            if ($n < 1e7) {
+            if (!$trial_division && $n < 1e7) {
                 $build->($n * 10) if $n > $max;
                 substr $prime, $n, 1
             }

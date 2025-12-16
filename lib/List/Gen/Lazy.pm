@@ -169,7 +169,7 @@ before 5.10.  the corresponding methods can be used instead.
                     $size = $mutable->() if $mutable;
                     if ($size <= $pos) {
                         $size = $pos = 0;
-                        goto top;
+                        redo top;
                     }
                     $size = $pos = 0     if ++$pos >= $size;
                     return wantarray ? @$got : pop @$got;
@@ -186,6 +186,7 @@ before 5.10.  the corresponding methods can be used instead.
         my ($pipe, $pos, $size) = (\@_, 0, 0);
         my ($type, $src, $ref, $mutable);
         my $next = sub {
+            start: {
             shift_pipe: until ($size) {
                 @$pipe or return;
                 $src = shift @$pipe;
@@ -216,7 +217,7 @@ before 5.10.  the corresponding methods can be used instead.
                     $got  = \$src->get($pos);
                     $size = $src->size if $mutable;
                     if ($pos >= $size) {
-                        goto shift_pipe
+                        redo start;
                     }
                 }
                 else {
@@ -229,7 +230,7 @@ before 5.10.  the corresponding methods can be used instead.
                         ? $pos--
                         : do {
                             $pos = $size = 0;
-                            goto shift_pipe
+                            redo start;
                         }
                 }
                 else {$got = \$src}
@@ -238,7 +239,7 @@ before 5.10.  the corresponding methods can be used instead.
                   $pos  = $size = 0
             }
             $$got
-        };
+        }};
         curse {
             next  => $next,
             more  => sub {@$pipe or $pos < $size},
