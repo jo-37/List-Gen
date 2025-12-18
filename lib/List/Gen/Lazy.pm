@@ -219,6 +219,7 @@ before 5.10.  the corresponding methods can be used instead.
                         $got  = \$src->get($pos);
                         $size = $src->size if $mutable;
                         if ($pos >= $size) {
+                            $size = $pos = 0;
                             redo shift_pipe;
                         }
                     }
