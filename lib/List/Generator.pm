@@ -1,4 +1,5 @@
 package List::Generator;
+use warnings;
 BEGIN {require List::Gen}
 
 =head1 NAME
@@ -7,7 +8,7 @@ List::Generator - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.976
+version 0.977
 
 =head1 SYNOPSIS
 

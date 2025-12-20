@@ -33,3 +33,4 @@ t/listgenerator.t
 t/pod-coverage.t
 t/pod.t
 t/threads.t
+t/manifest.t
