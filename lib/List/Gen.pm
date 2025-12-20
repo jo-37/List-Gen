@@ -87,7 +87,7 @@ package List::Gen;
 
     my $MAX_IDX = eval {require POSIX; POSIX::DBL_MAX()} || 2**53 - 1;
 
-    our $VERSION = '0.976_04';
+    our $VERSION = '0.977';
 
 =head1 NAME
 
@@ -95,7 +95,7 @@ List::Gen - provides functions for generating lists
 
 =head1 VERSION
 
-version 0.976_04
+version 0.977
 
 =head1 SYNOPSIS
 

@@ -57,16 +57,8 @@ Revision history for List-Gen
         use Fisher/Yates/Durstenfeld shuffle, see https://rt.cpan.org/Ticket/Display.html?id=74245
         minimum perl version 5.10.0
 
-0.976_1 2025.12.16
+0.977 2025.12.20
 		remove goto label
-
-0.976_2 2025.12.16
 		suppress qw warnings
-		remove goto label
-
-0.976_3 2025.12.17
-		refine
-
-0.976_4 2025.12.18
 		unit tests
 		fix lazyflatten
